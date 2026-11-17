@@ -9,6 +9,7 @@ import { AuthCallback, CheckEmail, ForgotPassword, ResetPassword } from './pages
 import { ClientsPage, InvoicePage, InvoicesPage, ProjectsPage, TimePage } from './pages/Archive.tsx'
 import { ExportPage } from './pages/ExportPage.tsx'
 import { ImportPage } from './pages/ImportPage.tsx'
+import { HarvestData, Privacy, Terms } from './pages/Legal.tsx'
 import { Landing, SignIn } from './pages/Landing.tsx'
 import { ReconcilePage } from './pages/ReconcilePage.tsx'
 
@@ -21,6 +22,9 @@ const router = createBrowserRouter([
   { path: '/forgot-password', element: <ForgotPassword /> },
   { path: '/reset-password', element: <ResetPassword /> },
   { path: '/auth', element: <AuthCallback /> },
+  { path: '/your-harvest-data', element: <HarvestData /> },
+  { path: '/privacy', element: <Privacy /> },
+  { path: '/terms', element: <Terms /> },
   {
     path: '/app',
     element: <AppLayout />,

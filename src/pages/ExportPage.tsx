@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { download, EXPORT_TABLES, fetchAll, toCsv, zip } from '../lib/export.ts'
 import { PageTitle, useWs } from './AppLayout.tsx'
+import { DeleteWorkspace } from './DeleteWorkspace.tsx'
 
 export function ExportPage() {
   const ws = useWs()
@@ -39,6 +40,7 @@ export function ExportPage() {
         <p aria-live="polite" className="w-full text-sm text-muted">{status}</p>
         {error && <p role="alert" className="w-full text-sm text-danger">{error}</p>}
       </div>
+      <DeleteWorkspace />
     </>
   )
 }

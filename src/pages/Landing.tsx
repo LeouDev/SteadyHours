@@ -1,15 +1,20 @@
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { PRODUCT_NAME } from '../../supabase/functions/_shared/config.ts'
 import { ImportScope } from '../lib/scope.tsx'
 import { AuthForm, AuthShell } from './Auth.tsx'
+import { Footer } from './Legal.tsx'
 
 export function Landing() {
+  const [params] = useSearchParams()
   return (
     <div className="min-h-screen bg-paper">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <span className="font-semibold tracking-tight text-ink">{PRODUCT_NAME}</span>
         <Link to="/signin" className="text-sm text-muted hover:text-ink">Sign in</Link>
       </header>
+      {params.get('deleted') && (
+        <p role="status" className="mx-auto max-w-5xl px-6 text-sm text-ok">Your workspace, its data and your login have been deleted.</p>
+      )}
       <main className="mx-auto max-w-5xl px-6 pb-20 pt-10 md:pt-20">
         <div className="grid gap-12 md:grid-cols-[1.2fr_1fr]">
           <section>
@@ -39,6 +44,7 @@ export function Landing() {
           <ImportScope />
         </section>
       </main>
+      <Footer />
     </div>
   )
 }

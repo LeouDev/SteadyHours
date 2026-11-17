@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Outlet, useOutletContext } from 'react-router'
 import { PRODUCT_NAME } from '../../supabase/functions/_shared/config.ts'
 import { supabase } from '../lib/supabase.ts'
+import { Footer } from './Legal.tsx'
 import { useSession, useWorkspace, type Workspace } from '../lib/workspace.ts'
 
 const NAV = [
@@ -42,6 +43,7 @@ export function AppLayout() {
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <Outlet context={ws.data} />
       </main>
+      <Footer />
     </div>
   )
 }
