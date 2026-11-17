@@ -81,11 +81,13 @@ TRUTH_FILE=/tmp/truth.json node --experimental-strip-types scripts/load-test.ts
 ## Deploying
 
 1. `supabase link --project-ref <ref>` then `supabase db push`.
-2. `supabase secrets set IMPORT_TOKEN_KEY=... HARVEST_CONTACT=...`, then `supabase functions deploy harvest-import`.
+2. `supabase secrets set IMPORT_TOKEN_KEY=... HARVEST_CONTACT=... IMPORT_INTERNAL_SECRET=<64 random hex chars>`, then
+   `supabase functions deploy harvest-import`.
 3. In the SQL editor, give pg_cron what it needs to resume stalled imports:
    ```sql
    select vault.create_secret('https://<ref>.supabase.co', 'project_url');
    select vault.create_secret('<service role key>', 'import_cron_key');
+   select vault.create_secret('<same value as IMPORT_INTERNAL_SECRET>', 'import_internal_secret');
    ```
 4. Auth (Authentication → URL Configuration): Site URL = the front end's URL; Redirect URLs = `<that URL>/**`.
    Email confirmation stays on. Supabase's built-in email only reaches your own team at about 2 emails an
@@ -101,6 +103,7 @@ TRUTH_FILE=/tmp/truth.json node --experimental-strip-types scripts/load-test.ts
 |---|---|---|
 | `IMPORT_TOKEN_KEY` | (required) | AES key for the Harvest token while an import runs |
 | `HARVEST_CONTACT` | (required) | URL or email in the User-Agent Harvest requires |
+| `IMPORT_INTERNAL_SECRET` | (required) | Shared with Vault `import_internal_secret`; proves a call came from the function or pg_cron |
 | `IMPORT_RECORDS_PER_RUN` | 10000 | Records one run processes before handing off; keeps a run inside the 2 s CPU limit |
 | `IMPORT_BUDGET_MS` | 100000 | Wall-clock limit per run |
 | `HARVEST_PAGE_SIZE` | 2000 | Testing only: smaller pages force more hand-offs |

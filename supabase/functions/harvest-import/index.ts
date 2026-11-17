@@ -16,6 +16,9 @@ const BUDGET_MS = Number(Deno.env.get('IMPORT_BUDGET_MS') ?? 100_000)
 const PAGE_SIZE = Number(Deno.env.get('HARVEST_PAGE_SIZE') ?? 2000)
 const SELF_CHAIN = Deno.env.get('IMPORT_SELF_CHAIN') !== 'off'
 const RECORDS_PER_RUN = Number(Deno.env.get('IMPORT_RECORDS_PER_RUN') ?? 10_000)
+// Proves a call came from this function or the pg_cron job. The same value is in Vault as
+// `import_internal_secret`. (The platform's SUPABASE_SERVICE_ROLE_KEY need not equal the key in Vault.)
+const INTERNAL_SECRET = Deno.env.get('IMPORT_INTERNAL_SECRET') ?? ''
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -38,7 +41,7 @@ async function runAndChain(importId: string) {
     if (result === 'more' && SELF_CHAIN) {
       await fetch(`${SUPABASE_URL}/functions/v1/harvest-import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'x-import-internal': INTERNAL_SECRET, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'resume', import_id: importId }),
       })
     }
@@ -59,7 +62,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
   const bearer = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
-  const isService = bearer === SERVICE_KEY
+  const internal = req.headers.get('x-import-internal') ?? ''
+  const isService = (INTERNAL_SECRET.length >= 32 && internal === INTERNAL_SECRET) || bearer === SERVICE_KEY
   let userId: string | null = null
   if (!isService) {
     const { data, error } = await admin.auth.getUser(bearer)
