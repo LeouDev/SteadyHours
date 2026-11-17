@@ -54,7 +54,7 @@ export function ReconcilePage() {
   if (q.isLoading) {
     return (
       <>
-        <PageHeader eyebrow="Reconciliation" title={<>Every hour.<br />Every cent.</>} />
+        <PageHeader eyebrow="Reconciliation" title={<>Your totals,<br />year by year</>} />
         <SkeletonRows rows={5} />
       </>
     )
@@ -67,7 +67,7 @@ export function ReconcilePage() {
   if (!last && hrs.length === 0 && invoices.length === 0) {
     return (
       <>
-        <PageHeader eyebrow="Reconciliation" title={<>Every hour.<br />Every cent.</>} />
+        <PageHeader eyebrow="Reconciliation" title={<>Your totals,<br />year by year</>} />
         <EmptyState icon="reconcile" title="Nothing to reconcile yet">
           Import your Harvest account and the totals appear here, year by year. <Link to="../import" className="link">Start an import</Link>
         </EmptyState>
@@ -110,13 +110,16 @@ export function ReconcilePage() {
     ? `${plural(mismatches.length, 'invoice')} ${mismatches.length === 1 ? 'doesn’t' : 'don’t'} add up`
     : refused.length ? `${listJoin(refused)} not imported` : totalInvoices ? 'Every invoice adds up' : 'Totals ready to compare'
 
+  // The headline states the result: the promise only when nothing needs attention.
+  const attention = needsLook || last?.status === 'failed'
+  const headline = attention ? <>Something here<br />needs a look.</> : running ? <>Your totals<br />are coming in.</> : <>Every hour.<br />Every cent.</>
   const eyebrow = !last ? 'Reconciliation' : running ? 'Import running' : last.status === 'failed' ? 'Import stopped' : 'Import complete'
 
   return (
     <>
       <PageHeader
         eyebrow={eyebrow}
-        title={<>Every hour.<br />Every cent.</>}
+        title={headline}
         sub="Compare these totals with Harvest’s Time and Invoices reports, year by year. Hours use Harvest’s exact decimals; money is added up per currency, never converted."
         action={<Link to="../export" className="btn-primary"><Icon name="export" size={16} /> Export everything</Link>}
       />
@@ -150,14 +153,15 @@ export function ReconcilePage() {
         </div>
       )}
 
-      <section aria-label="Totals" className="rise mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3" style={{ '--delay': '120ms' } as React.CSSProperties}>
-        <div className="card flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5">
+      <section aria-label="Totals" className="rise mt-6 flex flex-wrap gap-3 sm:gap-4"
+        style={{ '--delay': '120ms', '--per': perRow(1 + invoicedByCurrency.size) } as React.CSSProperties}>
+        <div className="card total-card flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5">
           <span className="text-[13px] text-muted">Hours tracked</span>
           <span className="figure text-[26px] sm:text-[34px]">{hours(totalHours)}</span>
           <span className="text-[13px] text-muted">{plural(totalEntries, 'time entry', 'time entries')}</span>
         </div>
         {[...invoicedByCurrency].map(([cur, cents]) => (
-          <div key={cur} className="card flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5">
+          <div key={cur} className="card total-card flex flex-col gap-1 px-4 py-4 sm:px-6 sm:py-5">
             <span className="text-[13px] text-muted">Invoiced in {cur} <span className="sr-only">(excluding drafts)</span></span>
             <span className="figure text-[26px] sm:text-[34px]">{money(cents, cur)}</span>
             <span className="text-[13px] text-muted">Excluding drafts</span>
@@ -278,6 +282,11 @@ export function ReconcilePage() {
       )}
     </>
   )
+}
+
+/** Cards per row so rows split evenly: 4 → 2 + 2, 5 → 3 + 2 (widened), 6 → 3 + 3, at most 3 a row. */
+function perRow(n: number) {
+  return Math.ceil(n / Math.ceil(n / 3))
 }
 
 function groupByYearCurrency(rows: InvRow[]) {

@@ -163,3 +163,10 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* Totals cards: --per cards a row on wide screens, two on phones; every row fills its width. */
+@utility total-card {
+  flex: 1 1 calc((100% - (var(--per, 3) - 1) * 1rem) / var(--per, 3));
+  min-width: min(100%, 150px);
+  @media (width < 40rem) { flex-basis: calc((100% - 0.75rem) / 2); }
+}
