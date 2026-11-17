@@ -7,12 +7,12 @@ const UPDATED = '17 November 2026'
 
 export function Footer() {
   return (
-    <footer className="border-t border-line">
-      <nav aria-label="Legal" className="mx-auto flex max-w-6xl flex-wrap gap-x-6 gap-y-2 px-4 py-6 text-sm text-muted sm:px-6">
-        <Link to="/your-harvest-data" className="hover:text-ink">How we handle your Harvest token and data</Link>
-        <Link to="/privacy" className="hover:text-ink">Privacy policy</Link>
-        <Link to="/terms" className="hover:text-ink">Terms</Link>
-        <span className="ml-auto">{PRODUCT_NAME} is not affiliated with Harvest.</span>
+    <footer className="border-t border-line bg-paper">
+      <nav aria-label="Legal" className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-x-6 gap-y-1 px-5 py-5 text-sm text-muted sm:px-8">
+        <Link to="/your-harvest-data" className="inline-flex min-h-11 items-center hover:text-ink">How we handle your Harvest token and data</Link>
+        <Link to="/privacy" className="inline-flex min-h-11 items-center hover:text-ink">Privacy policy</Link>
+        <Link to="/terms" className="inline-flex min-h-11 items-center hover:text-ink">Terms</Link>
+        <span className="inline-flex min-h-11 items-center sm:ml-auto">{PRODUCT_NAME} is not affiliated with Harvest.</span>
       </nav>
     </footer>
   )
@@ -21,13 +21,13 @@ export function Footer() {
 function Page({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-paper">
-      <header className="mx-auto max-w-3xl px-6 py-5">
-        <Link to="/" className="font-semibold text-ink">{PRODUCT_NAME}</Link>
+      <header className="mx-auto max-w-3xl px-5 py-5 sm:px-6">
+        <Link to="/" className="display inline-flex min-h-11 items-center text-2xl" style={{ letterSpacing: '-0.02em' }}>{PRODUCT_NAME}</Link>
       </header>
-      <main className="mx-auto max-w-3xl px-6 pb-16">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
-        <p className="mt-2 text-sm text-muted">Last updated {UPDATED}. Draft: not yet reviewed by a lawyer.</p>
-        <div className="legal mt-8 space-y-4 text-ink">{children}</div>
+      <main className="page-fade mx-auto max-w-3xl px-5 pb-16 sm:px-6">
+        <span className="eyebrow">Last updated {UPDATED} · draft, not yet reviewed by a lawyer</span>
+        <h1 className="display mt-3 text-[40px] sm:text-[48px]">{title}</h1>
+        <div className="card mt-8 space-y-4 p-6 text-[15px] leading-relaxed sm:p-8">{children}</div>
       </main>
       <Footer />
     </div>
@@ -36,10 +36,10 @@ function Page({ title, children }: { title: string; children: React.ReactNode })
 
 /** Marks a statement that needs legal review before launch. */
 function Check({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-lg bg-paper p-3 text-sm text-warn ring-1 ring-line"><strong>Lawyer to check:</strong> {children}</p>
+  return <p className="rounded-xl bg-warn-soft p-3 text-sm text-warn"><strong>Lawyer to check:</strong> {children}</p>
 }
 
-const H = ({ children }: { children: React.ReactNode }) => <h2 className="pt-4 text-xl font-semibold">{children}</h2>
+const H = ({ children }: { children: React.ReactNode }) => <h2 className="display pt-4 text-2xl" style={{ letterSpacing: '-0.02em' }}>{children}</h2>
 const Who = () => (
   <p>
     {PRODUCT_NAME} is run by {OPERATOR.name}, based in {OPERATOR.country}. Contact: {OPERATOR.email}.

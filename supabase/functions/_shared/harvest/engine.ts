@@ -104,7 +104,12 @@ export async function checkHarvestAccess(h: HarvestAccess): Promise<{ name: stri
 /** Maps Harvest source ids to our uuids per table, with placeholder rows for records Harvest no longer lists. */
 class Store {
   private maps = new Map<string, Map<number, string>>()
-  constructor(readonly db: SupabaseClient, private ws: string) {}
+  readonly db: SupabaseClient
+  private ws: string
+  constructor(db: SupabaseClient, ws: string) {
+    this.db = db
+    this.ws = ws
+  }
 
   map(table: string): Map<number, string> {
     let mp = this.maps.get(table)

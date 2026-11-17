@@ -31,3 +31,6 @@ supabase/.temp
 .env
 .vercel
 .env*
+
+# Design review screenshots (published separately)
+design-review/

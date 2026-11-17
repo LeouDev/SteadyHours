@@ -10,7 +10,7 @@ import { ClientsPage, InvoicePage, InvoicesPage, ProjectsPage, TimePage } from '
 import { ExportPage } from './pages/ExportPage.tsx'
 import { ImportPage } from './pages/ImportPage.tsx'
 import { HarvestData, Privacy, Terms } from './pages/Legal.tsx'
-import { Landing, SignIn } from './pages/Landing.tsx'
+import { Landing, SignIn, SignUp } from './pages/Landing.tsx'
 import { ReconcilePage } from './pages/ReconcilePage.tsx'
 
 document.title = `${PRODUCT_NAME} · Import your Harvest account`
@@ -18,6 +18,7 @@ document.title = `${PRODUCT_NAME} · Import your Harvest account`
 const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
   { path: '/signin', element: <SignIn /> },
+  { path: '/signup', element: <SignUp /> },
   { path: '/check-email', element: <CheckEmail /> },
   { path: '/forgot-password', element: <ForgotPassword /> },
   { path: '/reset-password', element: <ResetPassword /> },

@@ -25,8 +25,8 @@ export function DeleteWorkspace() {
   }
 
   return (
-    <section aria-labelledby="delete-heading" className="card mt-10 max-w-xl border-danger/40 p-6">
-      <h2 id="delete-heading" className="font-semibold text-danger">Delete this workspace</h2>
+    <section aria-labelledby="delete-heading" className="card mt-10 max-w-2xl p-6 sm:p-8">
+      <h2 id="delete-heading" className="display text-2xl text-danger" style={{ letterSpacing: "-0.02em" }}>Delete this workspace</h2>
       <p className="mt-2 text-sm text-ink">
         This permanently deletes the workspace, everything imported into it, any import in progress and its stored
         Harvest token, and your login. It can’t be undone. Download an export first if you want to keep a copy.
@@ -37,7 +37,7 @@ export function DeleteWorkspace() {
         </label>
         <input id="confirm-name" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} className="field" />
         <button type="submit" disabled={busy || typed !== ws.name}
-          className="inline-flex items-center justify-center rounded-lg bg-danger px-4 py-2 font-medium text-on-danger hover:opacity-90 disabled:opacity-40">
+          className="btn-danger">
           {busy ? 'Deleting…' : 'Delete workspace permanently'}
         </button>
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}

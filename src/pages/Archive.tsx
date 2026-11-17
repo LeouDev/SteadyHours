@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { date, entryHours, hours, money } from '../lib/format.ts'
 import { must, supabase } from '../lib/supabase.ts'
-import { Empty, PageTitle, useWs } from './AppLayout.tsx'
+import { Callout, EmptyState, PageHeader, Pill, SkeletonRows, stagger, type Tone } from '../lib/ui.tsx'
+import { useWs } from './AppLayout.tsx'
 
 const PAGE = 100
 
@@ -25,19 +26,19 @@ function useLookups(wsId: string) {
 function Pager({ page, count, onPage }: { page: number; count: number; onPage: (p: number) => void }) {
   const pages = Math.max(1, Math.ceil(count / PAGE))
   return (
-    <div className="flex items-center justify-between px-4 py-3 text-sm text-muted">
+    <nav aria-label="Pages" className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
       <span>{count.toLocaleString()} total</span>
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-3">
         <button className="btn-secondary" disabled={page === 0} onClick={() => onPage(page - 1)}>Previous</button>
         <span>Page {page + 1} of {pages}</span>
         <button className="btn-secondary" disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>Next</button>
       </span>
-    </div>
+    </nav>
   )
 }
 
 function Status({ archived }: { archived: boolean }) {
-  return archived ? <span className="badge">Archived</span> : <span className="badge badge-ok">Active</span>
+  return <span className="pop inline-block">{archived ? <Pill tone="neutral">Archived</Pill> : <Pill tone="ok">Active</Pill>}</span>
 }
 
 export function ClientsPage() {
@@ -50,17 +51,18 @@ export function ClientsPage() {
   })
   return (
     <>
-      <PageTitle>Clients</PageTitle>
-      {q.error && <p role="alert" className="text-danger">{q.error.message}</p>}
-      {q.data?.length === 0 && <Empty>No clients yet.</Empty>}
+      <PageHeader eyebrow="Archive" title="Clients" />
+      {q.error && <Callout tone="danger" role="alert" title="We couldn’t load this list.">Refresh the page to try again.</Callout>}
+      {q.isLoading && <SkeletonRows />}
+      {q.data?.length === 0 && <EmptyState icon="clients" title="No clients yet">They appear here after an import.</EmptyState>}
       {!!q.data?.length && (
-        <div className="table-wrap">
-          <table>
+        <div className="table-box">
+          <table className="rows min-w-[680px]">
             <thead><tr><th>Client</th><th>Currency</th><th>Contacts</th><th className="num">Projects</th><th>Status</th></tr></thead>
             <tbody>
-              {q.data.map((c) => (
-                <tr key={c.id}>
-                  <td><Link to={`../projects?client=${c.id}`} className="font-medium text-ink hover:underline">{c.name}</Link>
+              {q.data.map((c, n) => (
+                <tr key={c.id} className="row-rise" style={stagger(n)}>
+                  <td><Link to={`../projects?client=${c.id}`} className="inline-flex min-h-11 items-center font-medium text-ink hover:underline">{c.name}</Link>
                     {c.address && <span className="block whitespace-pre-line text-xs text-muted">{c.address}</span>}</td>
                   <td>{c.currency}</td>
                   <td className="text-sm">{c.contacts.map((p: { name: string; email: string | null }) => <span key={p.name + p.email} className="block">{p.name}{p.email && <span className="text-muted"> · {p.email}</span>}</span>)}</td>
@@ -93,7 +95,7 @@ export function ProjectsPage() {
   })
   return (
     <>
-      <PageTitle>Projects</PageTitle>
+      <PageHeader eyebrow="Archive" title="Projects" />
       <div className="mb-4 max-w-xs">
         <label htmlFor="pclient" className="block text-sm font-medium text-ink">Client</label>
         <select id="pclient" className="field mt-1" value={clientId} onChange={(e) => setParams(e.target.value ? { client: e.target.value } : {})}>
@@ -101,18 +103,19 @@ export function ProjectsPage() {
           {lookups.data?.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
-      {q.error && <p role="alert" className="text-danger">{q.error.message}</p>}
-      {q.data?.length === 0 && <Empty>No projects.</Empty>}
+      {q.error && <Callout tone="danger" role="alert" title="We couldn’t load this list.">Refresh the page to try again.</Callout>}
+      {q.isLoading && <SkeletonRows />}
+      {q.data?.length === 0 && <EmptyState icon="projects" title="No projects">{clientId ? 'This client has no projects.' : 'They appear here after an import.'}</EmptyState>}
       {!!q.data?.length && (
-        <div className="table-wrap">
-          <table>
+        <div className="table-box">
+          <table className="rows min-w-[680px]">
             <thead><tr><th>Project</th><th>Client</th><th>Code</th><th className="num">Hourly rate</th><th>Billable</th><th>Status</th></tr></thead>
             <tbody>
-              {q.data.map((p) => {
+              {q.data.map((p, n) => {
                 const client = p.client as unknown as { name: string; currency: string }
                 return (
-                  <tr key={p.id}>
-                    <td><Link to={`../time?project=${p.id}`} className="font-medium text-ink hover:underline">{p.name}</Link></td>
+                  <tr key={p.id} className="row-rise" style={stagger(n)}>
+                    <td><Link to={`../time?project=${p.id}`} className="inline-flex min-h-11 items-center font-medium text-ink hover:underline">{p.name}</Link></td>
                     <td>{client.name}</td><td className="text-muted">{p.code ?? ''}</td>
                     <td className="num">{money(p.hourly_rate_cents, client.currency)}</td>
                     <td>{p.is_billable ? 'Yes' : 'No'}</td><td><Status archived={p.is_archived} /></td>
@@ -161,7 +164,7 @@ export function TimePage() {
 
   return (
     <>
-      <PageTitle>Time entries</PageTitle>
+      <PageHeader eyebrow="Archive" title="Time entries" />
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label htmlFor="f-from" className="text-sm font-medium text-ink">From<input id="f-from" type="date" className="field mt-1" value={f.from} onChange={(e) => set('from', e.target.value)} /></label>
         <label htmlFor="f-to" className="text-sm font-medium text-ink">To<input id="f-to" type="date" className="field mt-1" value={f.to} onChange={(e) => set('to', e.target.value)} /></label>
@@ -178,18 +181,19 @@ export function TimePage() {
             <option value="">All</option>{lookups.data?.people.map((p) => <option key={p.id} value={p.id}>{p.name || 'Unnamed'}{p.is_active ? '' : ' (inactive)'}</option>)}
           </select></label>
       </div>
-      {q.error && <p role="alert" className="text-danger">{q.error.message}</p>}
-      {q.data?.count === 0 && <Empty>No time entries match.</Empty>}
+      {q.error && <Callout tone="danger" role="alert" title="We couldn’t load this list.">Refresh the page to try again.</Callout>}
+      {q.isLoading && <SkeletonRows />}
+      {q.data?.count === 0 && <EmptyState icon="time" title="No time entries match">Try a wider date range, or clear a filter.</EmptyState>}
       {!!q.data?.count && (
-        <div className="table-wrap">
-          <table>
+        <div className="table-box">
+          <table className="rows min-w-[680px]">
             <thead><tr><th>Date</th><th>Person</th><th>Client / project</th><th>Task</th><th>Notes</th><th className="num">Hours</th><th className="num">Rate</th><th>Billing</th></tr></thead>
             <tbody>
-              {q.data.rows.map((e) => {
+              {q.data.rows.map((e, n) => {
                 const project = e.project as unknown as { name: string; client: { name: string; currency: string } }
                 const invoice = e.invoice as unknown as { id: string; number: string } | null
                 return (
-                  <tr key={e.id}>
+                  <tr key={e.id} className="row-rise" style={stagger(n)}>
                     <td className="whitespace-nowrap">{date(e.spent_on)}</td>
                     <td>{(e.person as unknown as { name: string }).name}</td>
                     <td><span className="block text-xs text-muted">{project.client.name}</span>{project.name}</td>
@@ -198,8 +202,8 @@ export function TimePage() {
                     <td className="num">{hours(entryHours(e))}</td>
                     <td className="num">{e.is_billable ? money(e.rate_cents, project.client.currency) : '—'}</td>
                     <td className="text-sm">
-                      {invoice ? <Link to={`../invoices/${invoice.id}`} className="text-accent hover:underline">{invoice.number}</Link>
-                        : e.is_billed ? 'Billed' : e.is_billable ? <span className="text-muted">Unbilled</span> : <span className="text-muted">Non-billable</span>}
+                      {invoice ? <Link to={`../invoices/${invoice.id}`} className="link inline-flex min-h-11 items-center">{invoice.number}</Link>
+                        : <span className="pop inline-block">{e.is_billed ? <Pill tone="ok">Billed</Pill> : e.is_billable ? <Pill tone="accent">Unbilled</Pill> : <Pill tone="neutral">Non-billable</Pill>}</span>}
                     </td>
                   </tr>
                 )
@@ -213,6 +217,7 @@ export function TimePage() {
   )
 }
 
+const STATUS_TONE: Record<string, Tone> = { draft: 'neutral', sent: 'accent', paid: 'ok', void: 'neutral', closed: 'neutral' }
 const STATUS_LABEL: Record<string, string> = { draft: 'Draft', sent: 'Open', paid: 'Paid', void: 'Void', closed: 'Closed' }
 
 export function InvoicesPage() {
@@ -235,26 +240,27 @@ export function InvoicesPage() {
   })
   return (
     <>
-      <PageTitle>Invoices</PageTitle>
+      <PageHeader eyebrow="Archive" title="Invoices" />
       <div className="mb-4 max-w-xs">
         <label htmlFor="istatus" className="block text-sm font-medium text-ink">Status</label>
         <select id="istatus" className="field mt-1" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0) }}>
           <option value="">All</option>{Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </div>
-      {q.error && <p role="alert" className="text-danger">{q.error.message}</p>}
-      {q.data?.count === 0 && <Empty>No invoices.</Empty>}
+      {q.error && <Callout tone="danger" role="alert" title="We couldn’t load this list.">Refresh the page to try again.</Callout>}
+      {q.isLoading && <SkeletonRows />}
+      {q.data?.count === 0 && <EmptyState icon="invoices" title="No invoices">{status ? 'None with this status.' : 'They appear here after an import.'}</EmptyState>}
       {!!q.data?.count && (
-        <div className="table-wrap">
-          <table>
+        <div className="table-box">
+          <table className="rows min-w-[680px]">
             <thead><tr><th>Number</th><th>Client</th><th>Issued</th><th>Status</th><th className="num">Total</th><th className="num">Due</th></tr></thead>
             <tbody>
-              {q.data.rows.map((i) => (
-                <tr key={i.id}>
-                  <td><Link to={i.id} className="font-medium text-ink hover:underline">{i.number}</Link></td>
+              {q.data.rows.map((i, n) => (
+                <tr key={i.id} className="row-rise" style={stagger(n)}>
+                  <td><Link to={i.id} className="inline-flex min-h-11 items-center font-medium text-ink hover:underline">{i.number}</Link></td>
                   <td>{(i.client as unknown as { name: string }).name}</td>
                   <td className="whitespace-nowrap">{date(i.issue_date)}</td>
-                  <td><span className={`badge ${i.status === 'paid' ? 'badge-ok' : ''}`}>{STATUS_LABEL[i.status]}</span></td>
+                  <td><span className="pop inline-block"><Pill tone={STATUS_TONE[i.status] ?? 'neutral'}>{STATUS_LABEL[i.status]}</Pill></span></td>
                   <td className="num">{money(i.total_cents, i.currency)}</td>
                   <td className="num">{i.due_cents ? money(i.due_cents, i.currency) : '—'}</td>
                 </tr>
@@ -287,8 +293,8 @@ export function InvoicePage() {
       .select('*, client:clients(name, address), invoice_items(id, kind, description, quantity, unit_price_cents, amount_cents, taxed, taxed2, project:projects(name)), time_entries(count)')
         .eq('workspace_id', ws.id).eq('id', id!).order('source_id', { referencedTable: 'invoice_items' }).single()) as unknown as InvoiceDetail,
   })
-  if (q.isLoading) return <p className="text-muted">Loading…</p>
-  if (q.error) return <p role="alert" className="text-danger">{q.error.message}</p>
+  if (q.isLoading) return <SkeletonRows rows={4} />
+  if (q.error) return <Callout tone="danger" role="alert" title="We couldn’t load this invoice.">Refresh the page to try again.</Callout>
   const i = q.data!
   const c = i.currency
   const client = i.client
@@ -296,11 +302,12 @@ export function InvoicePage() {
 
   return (
     <>
-      <Link to=".." relative="path" className="text-sm text-muted hover:text-ink">← Invoices</Link>
-      <div className="card mt-3 max-w-4xl p-6">
+      <Link to=".." relative="path" className="inline-flex min-h-11 items-center text-sm text-muted hover:text-ink">← Invoices</Link>
+      <div className="card lift rise mt-3 max-w-4xl p-6 sm:p-8">
         <div className="flex flex-wrap justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-ink">Invoice {i.number}</h1>
+            <span className="eyebrow">Invoice</span>
+            <h1 className="display mt-2 text-[40px]">{i.number}</h1>
             <p className="mt-1 text-muted">{client.name}</p>
             {i.subject && <p className="mt-1 text-sm text-muted">{i.subject}</p>}
           </div>
@@ -312,8 +319,8 @@ export function InvoicePage() {
             <dt className="text-muted">Time entries</dt><dd>{i.time_entries[0]?.count ?? 0}</dd>
           </dl>
         </div>
-        <div className="table-wrap mt-6 border-0 shadow-none">
-          <table>
+        <div className="mt-6 overflow-x-auto">
+          <table className="rows min-w-[600px]">
             <thead><tr><th>Kind</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Amount</th><th>Taxed</th></tr></thead>
             <tbody>
               {i.invoice_items.map((li) => (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { download, EXPORT_TABLES, fetchAll, toCsv, zip } from '../lib/export.ts'
-import { PageTitle, useWs } from './AppLayout.tsx'
+import { Icon, PageHeader } from '../lib/ui.tsx'
+import { useWs } from './AppLayout.tsx'
 import { DeleteWorkspace } from './DeleteWorkspace.tsx'
 
 export function ExportPage() {
@@ -31,14 +32,15 @@ export function ExportPage() {
 
   return (
     <>
-      <PageTitle sub="Everything in this workspace, on every plan including the free archive. Money is in integer minor units (cents) with each row’s currency; dates are ISO 8601.">
-        Export
-      </PageTitle>
-      <div className="card flex max-w-xl flex-wrap gap-3 p-6">
-        <button className="btn-primary" disabled={!!status?.endsWith('…')} onClick={() => run('json')}>Download JSON</button>
-        <button className="btn-secondary" disabled={!!status?.endsWith('…')} onClick={() => run('csv')}>Download CSV (zip)</button>
-        <p aria-live="polite" className="w-full text-sm text-muted">{status}</p>
-        {error && <p role="alert" className="w-full text-sm text-danger">{error}</p>}
+      <PageHeader eyebrow="Export" title={<>Take everything<br />with you</>}
+        sub="Everything in this workspace, on every plan including the free archive. Money is in integer minor units (cents) with each row’s currency; dates are ISO 8601." />
+      <div className="card lift rise flex max-w-2xl flex-col gap-4 p-6 sm:p-8">
+        <div className="flex flex-wrap gap-3">
+          <button className="btn-primary" disabled={!!status?.endsWith('…')} onClick={() => run('json')}><Icon name="export" size={16} /> Download JSON</button>
+          <button className="btn-secondary" disabled={!!status?.endsWith('…')} onClick={() => run('csv')}>Download CSV (zip)</button>
+        </div>
+        <p aria-live="polite" className="text-sm text-muted">{status}</p>
+        {error && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{error}</p>}
       </div>
       <DeleteWorkspace />
     </>

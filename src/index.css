@@ -1,68 +1,165 @@
 @import "tailwindcss";
+/* Self-hosted fonts: no request leaves for a font service. */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/source-serif-4";
 
-/* Colour tokens: neutral slate with a deep teal accent. Contrast meets WCAG AA on both themes. */
+/* Design tokens, defined once. Every colour in the app comes from these. */
 @theme {
-  --color-paper: #f6f7f8;
+  --color-paper: #f2f3fa;
   --color-surface: #ffffff;
-  --color-ink: #16202a;
-  --color-muted: #55606c;
-  --color-line: #dde2e7;
-  --color-accent: #0e6b5c;
-  --color-accent-strong: #0a5348;
-  --color-accent-soft: #e3f1ee;
+  --color-raise: #fafafe;
+  --color-line: #e6e8f2;
+  --color-line-strong: #d9dcec;
+  --color-ink: #14162e;
+  --color-muted: #4a4f6e;
+  --color-accent: #4338ca;
+  --color-accent-strong: #3730a3;
+  --color-accent-soft: #eef0fb;
   --color-on-accent: #ffffff;
+  /* Status pairs: each text colour passes AA on its own tint, and the pairs differ in lightness. */
+  --color-ok: #0b7a53;
+  --color-ok-soft: #e3f4ec;
+  --color-warn: #6b4e00;
+  --color-warn-soft: #fbf1c7;
+  --color-danger: #a3123a;
+  --color-danger-soft: #fbe7ec;
   --color-on-danger: #ffffff;
-  --color-danger: #b42318;
-  --color-warn: #8a5a00;
-  --color-ok: #146c2e;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, serif;
+
+  --radius-card: 20px;
+  --shadow-lift: 0 14px 32px -20px rgb(40 44 90 / 0.28);
+  --shadow-window: 0 30px 60px -36px rgb(40 44 90 / 0.45);
 }
 
+/* Dark theme: the same roles, re-tuned for a dark ground. Follows the system setting. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-paper: #0f1418;
-    --color-surface: #161d23;
-    --color-ink: #e6ebef;
-    --color-muted: #9aa6b2;
-    --color-line: #29333c;
-    --color-accent: #4cc3ac;
-    --color-accent-strong: #6fd6c2;
-    --color-accent-soft: #15302b;
-    --color-on-accent: #08201b;
-    --color-on-danger: #2a0905;
-    --color-danger: #ff8a7d;
-    --color-warn: #f0bd59;
-    --color-ok: #6fd18a;
+    --color-paper: #0f1020;
+    --color-surface: #171933;
+    --color-raise: #1d2040;
+    --color-line: #2a2d4a;
+    --color-line-strong: #363a5c;
+    --color-ink: #e8e9f5;
+    --color-muted: #a3a7c7;
+    --color-accent: #a5b4fc;
+    --color-accent-strong: #c7d0fe;
+    --color-accent-soft: #262a60;
+    --color-on-accent: #14162e;
+    --color-ok: #5fd3a6;
+    --color-ok-soft: #0f3327;
+    --color-warn: #f2d16b;
+    --color-warn-soft: #3a3110;
+    --color-danger: #ffa3b8;
+    --color-danger-soft: #46121f;
+    --color-on-danger: #2a0510;
+    --shadow-lift: 0 16px 36px -22px rgb(0 0 0 / 0.7);
+    --shadow-window: 0 30px 60px -32px rgb(0 0 0 / 0.75);
+    color-scheme: dark;
   }
 }
 
-body { @apply bg-paper text-ink antialiased; }
+html { background: var(--color-paper); }
+body {
+  @apply bg-paper font-sans text-ink antialiased;
+  font-size: 15px;
+  line-height: 1.5;
+  /* Every number lines up in columns. */
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-@utility card { @apply rounded-xl border border-line bg-surface shadow-sm; }
+/* ---- Type ---- */
+@utility display { font-family: var(--font-serif); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; }
+@utility eyebrow { @apply text-xs font-semibold uppercase text-muted; letter-spacing: 0.18em; }
+@utility figure { font-family: var(--font-serif); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums lining-nums; }
+
+/* ---- Surfaces ---- */
+@utility card { @apply border border-line bg-surface; border-radius: var(--radius-card); }
+@utility lift { box-shadow: var(--shadow-lift); }
+
+/* ---- Controls (44px targets, subtle press) ---- */
 @utility field {
-  @apply block w-full rounded-lg border border-line bg-surface px-3 py-2 text-ink outline-none;
-  &:focus { @apply border-accent ring-2 ring-accent/30; }
+  @apply block w-full rounded-xl border border-line-strong bg-surface px-3.5 text-ink outline-none;
+  min-height: 44px;
+  &:focus { @apply border-accent ring-2 ring-accent/25; }
+  &[aria-invalid="true"] { @apply border-danger; }
 }
 @utility btn-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 font-medium text-on-accent;
-  &:hover { @apply bg-accent-strong; }
-  &:focus-visible { @apply outline-2 outline-offset-2 outline-accent; }
-  &:disabled { @apply opacity-60; }
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-on-accent;
+  min-height: 46px;
+  transition: filter 150ms ease, transform 100ms ease;
+  &:hover { filter: brightness(0.92); }
+  &:active { transform: scale(0.98); }
+  &:disabled { @apply opacity-50; transform: none; filter: none; }
 }
 @utility btn-secondary {
-  @apply inline-flex items-center justify-center rounded-lg border border-line bg-surface px-3 py-1.5 text-ink;
-  &:hover { @apply border-muted; }
-  &:focus-visible { @apply outline-2 outline-offset-2 outline-accent; }
-  &:disabled { @apply opacity-50; }
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface px-4 font-medium text-ink;
+  min-height: 44px;
+  transition: background-color 150ms ease, transform 100ms ease;
+  &:hover { @apply bg-raise; }
+  &:active { transform: scale(0.98); }
+  &:disabled { @apply opacity-50; transform: none; }
 }
-@utility badge { @apply inline-block rounded-full bg-paper px-2 py-0.5 text-xs text-muted ring-1 ring-line; }
-@utility badge-ok { @apply text-ok; }
-@utility num { @apply text-right tabular-nums whitespace-nowrap; }
-@utility table-wrap {
-  @apply card overflow-x-auto;
-  & table { @apply w-full border-collapse text-sm; }
-  & th { @apply border-b border-line px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted; }
-  & td { @apply border-b border-line px-4 py-2.5 align-top; }
-  & tbody tr:last-child td { @apply border-b-0; }
+@utility btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-on-danger;
+  min-height: 46px;
+  transition: filter 150ms ease, transform 100ms ease;
+  &:hover { filter: brightness(0.92); }
+  &:active { transform: scale(0.98); }
+  &:disabled { @apply opacity-40; transform: none; filter: none; }
+}
+@utility link { @apply font-medium text-accent underline-offset-4 hover:underline; }
+
+/* ---- Pills and chips ---- */
+@utility pill { @apply inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 text-[13px] font-semibold; height: 30px; }
+@utility chip { @apply inline-flex items-center justify-center rounded-full bg-accent-soft px-2.5 font-semibold text-accent; min-width: 52px; height: 32px; }
+
+/* ---- Row-card tables: real <table> markup, each row drawn as its own rounded card ---- */
+@utility rows {
+  @apply w-full text-sm;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  & thead th { @apply px-4 pb-1 pt-0 text-left text-[13px] font-medium text-muted; }
+  & tbody td, & tbody th { @apply border-y border-line bg-surface px-4 py-3 text-left align-middle font-normal; }
+  & tbody tr > :first-child { @apply border-l; border-radius: 16px 0 0 16px; }
+  & tbody tr > :last-child { @apply border-r; border-radius: 0 16px 16px 0; }
+  & tbody tr:hover > * { @apply bg-raise; }
   & .num { @apply text-right; }
+}
+/* A scroll box for wide or long tables; its header row stays in view. */
+@utility table-box {
+  @apply overflow-auto;
+  max-height: min(72vh, 900px);
+  & thead th { @apply sticky top-0 z-10 bg-paper; }
+}
+@utility num { @apply whitespace-nowrap text-right tabular-nums; }
+
+/* ---- Motion: short, calm, and off when people ask for less motion ---- */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@utility rise { animation: rise 360ms ease-out both; animation-delay: var(--delay, 0ms); }
+/* Rows rise in turn (style="--i: n"), their status pills pop in just after. */
+@utility row-rise {
+  animation: rise 300ms ease-out both;
+  animation-delay: calc(min(var(--i, 0), 14) * 45ms + 80ms);
+  & .pop { animation: pop 240ms ease-out both; animation-delay: calc(min(var(--i, 0), 14) * 45ms + 300ms); }
+}
+@utility page-fade { animation: fade 180ms ease-out both; }
+@utility skeleton {
+  @apply rounded-xl;
+  background: linear-gradient(90deg, var(--color-line) 25%, var(--color-raise) 50%, var(--color-line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

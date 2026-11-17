@@ -2,19 +2,24 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { supabase } from '../lib/supabase.ts'
 import { PRODUCT_NAME } from '../../supabase/functions/_shared/config.ts'
+import { Footer } from './Legal.tsx'
 
 // Where links in auth emails land. The /auth screen finishes sign-in or explains a bad link.
 const callbackUrl = () => `${window.location.origin}/auth`
 
 /** Centred card used by sign-in and the other account screens. */
-export function AuthShell({ title, children }: { title: string; children: React.ReactNode }) {
+export function AuthShell({ title, eyebrow = 'Your account', children }: { title: string; eyebrow?: string; children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-paper px-6">
-      <div className="card w-full max-w-sm p-6">
-        <Link to="/" className="text-sm font-semibold text-ink">{PRODUCT_NAME}</Link>
-        <h1 className="mb-5 mt-4 text-xl font-semibold text-ink">{title}</h1>
-        {children}
-      </div>
+    <div className="flex min-h-screen flex-col bg-paper">
+      <main className="page-fade flex flex-1 flex-col items-center justify-center px-5 py-10">
+        <Link to="/" className="display mb-6 text-2xl" style={{ letterSpacing: '-0.02em' }}>{PRODUCT_NAME}</Link>
+        <div className="card lift w-full max-w-[26rem] p-6 sm:p-8">
+          <span className="eyebrow">{eyebrow}</span>
+          <h1 className="display mb-6 mt-2 text-[32px]">{title}</h1>
+          {children}
+        </div>
+      </main>
+      <Footer />
     </div>
   )
 }
@@ -37,7 +42,8 @@ type Msg = { kind: 'error' | 'info'; text: string } | null
 function Message({ msg }: { msg: Msg }) {
   if (!msg) return null
   return (
-    <p role={msg.kind === 'error' ? 'alert' : 'status'} className={msg.kind === 'error' ? 'text-sm text-danger' : 'text-sm text-muted'}>
+    <p role={msg.kind === 'error' ? 'alert' : 'status'}
+      className={`rounded-xl p-3 text-sm ${msg.kind === 'error' ? 'bg-danger-soft text-danger' : 'bg-accent-soft text-ink'}`}>
       {msg.text}
     </p>
   )
@@ -94,7 +100,7 @@ export function AuthForm({ mode }: { mode: 'signup' | 'signin' }) {
         <div>
           <div className="flex items-baseline justify-between">
             <label htmlFor="password" className="block text-sm font-medium text-ink">Password</label>
-            {mode === 'signin' && <Link to="/forgot-password" className="text-sm text-accent hover:underline">Forgot password?</Link>}
+            {mode === 'signin' && <Link to="/forgot-password" className="link inline-flex min-h-11 items-center text-sm">Forgot password?</Link>}
           </div>
           <input id="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} className="field mt-1" />
@@ -104,11 +110,11 @@ export function AuthForm({ mode }: { mode: 'signup' | 'signin' }) {
       <button type="submit" disabled={busy} className="btn-primary w-full">
         {busy ? 'Working…' : useLink ? 'Email me a link' : mode === 'signup' ? 'Create free account' : 'Sign in'}
       </button>
-      <button type="button" onClick={() => setUseLink(!useLink)} className="w-full text-sm text-accent underline-offset-2 hover:underline">
+      <button type="button" onClick={() => setUseLink(!useLink)} className="link inline-flex min-h-11 w-full items-center justify-center text-sm">
         {useLink ? 'Use a password instead' : 'Email me a sign-in link instead'}
       </button>
       <Message msg={message} />
-      {unconfirmed && <Link to={`/check-email?kind=signup&email=${encodeURIComponent(email)}`} className="text-sm text-accent hover:underline">Send the confirmation link again</Link>}
+      {unconfirmed && <Link to={`/check-email?kind=signup&email=${encodeURIComponent(email)}`} className="link inline-flex min-h-11 items-center text-sm">Send the confirmation link again</Link>}
     </form>
   )
 }
@@ -132,7 +138,7 @@ export function CheckEmail() {
   }
 
   return (
-    <AuthShell title="Check your email">
+    <AuthShell eyebrow="Almost there" title="Check your email">
       <p className="text-ink">
         We sent a link to <strong className="break-all">{email || 'your email address'}</strong>.{' '}
         {kind === 'signup' ? 'Open it to confirm your address and finish creating your account.' : 'Open it to sign in.'}
@@ -141,7 +147,7 @@ export function CheckEmail() {
       <div className="mt-5 space-y-3">
         <button className="btn-secondary w-full" disabled={busy || !email} onClick={resend}>{busy ? 'Sending…' : 'Send the link again'}</button>
         <Message msg={msg} />
-        <p className="text-sm text-muted">Wrong address? <Link to="/" className="text-accent hover:underline">Start again</Link></p>
+        <p className="text-sm text-muted">Wrong address? <Link to="/" className="link">Start again</Link></p>
       </div>
     </AuthShell>
   )
@@ -163,7 +169,7 @@ export function ForgotPassword() {
   }
 
   return (
-    <AuthShell title="Reset your password">
+    <AuthShell eyebrow="Password" title="Reset your password">
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-ink">Email</label>
@@ -171,7 +177,7 @@ export function ForgotPassword() {
         </div>
         <button type="submit" disabled={busy} className="btn-primary w-full">{busy ? 'Sending…' : 'Email me a reset link'}</button>
         <Message msg={msg} />
-        <p className="text-sm text-muted"><Link to="/signin" className="text-accent hover:underline">Back to sign in</Link></p>
+        <p className="text-sm text-muted"><Link to="/signin" className="link">Back to sign in</Link></p>
       </form>
     </AuthShell>
   )
@@ -221,14 +227,14 @@ export function ResetPassword() {
 
   if (state === 'failed') {
     return (
-      <AuthShell title="Reset your password">
-        <p role="alert" className="text-danger">{linkError() ?? 'This reset link isn’t valid any more.'}</p>
+      <AuthShell eyebrow="Password" title="Reset your password">
+        <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{linkError() ?? 'This reset link isn’t valid any more.'}</p>
         <Link to="/forgot-password" className="btn-primary mt-5 w-full">Send a new link</Link>
       </AuthShell>
     )
   }
   return (
-    <AuthShell title="Choose a new password">
+    <AuthShell eyebrow="Password" title="Choose a new password">
       {state === 'waiting' ? <p className="text-muted">Checking your link…</p> : (
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -253,10 +259,10 @@ export function AuthCallback() {
     if (state === 'ready') navigate('/app/import', { replace: true })
   }, [state, navigate])
 
-  if (state !== 'failed') return <AuthShell title="Signing you in…"><p className="text-muted">One moment.</p></AuthShell>
+  if (state !== 'failed') return <AuthShell eyebrow="Email link" title="Signing you in…"><p className="text-muted">One moment.</p></AuthShell>
   return (
-    <AuthShell title="That link didn’t work">
-      <p role="alert" className="text-danger">{linkError() ?? 'We couldn’t sign you in with that link.'}</p>
+    <AuthShell eyebrow="Email link" title="That link didn’t work">
+      <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{linkError() ?? 'We couldn’t sign you in with that link.'}</p>
       <p className="mt-3 text-sm text-muted">Sign in to get a new one. If you just confirmed your email, you can sign in with your password.</p>
       <Link to="/signin" className="btn-primary mt-5 w-full">Go to sign in</Link>
     </AuthShell>
