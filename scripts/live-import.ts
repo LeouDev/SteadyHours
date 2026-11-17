@@ -54,7 +54,7 @@ async function runImport(label: string) {
     last = line
     if (data!.status === 'succeeded' || data!.status === 'failed') {
       const { count } = await admin.from('import_secrets').select('*', { count: 'exact', head: true }).eq('import_id', body.import_id)
-      console.log(`[${label}] finished in ${Math.round((Date.now() - t0) / 1000)}s; error: ${data!.error ?? 'none'}; skipped: ${JSON.stringify(data!.progress.skipped)}; stored token rows left: ${count}`)
+      console.log(`[${label}] finished in ${Math.round((Date.now() - t0) / 1000)}s; runs: ${data!.progress.runs}; error: ${data!.error ?? "none"}; skipped: ${JSON.stringify(data!.progress.skipped)}; stored token rows left: ${count}`)
       console.log(`[${label}] warnings: ${data!.progress.warnings ?? 0}`, data!.progress.warning_samples ?? [])
       return data!.status
     }
@@ -64,9 +64,12 @@ async function runImport(label: string) {
 if ((await runImport('first')) !== 'succeeded') process.exit(1)
 const first = await rowCounts()
 console.log('row counts after first import:', first)
-if ((await runImport('second')) !== 'succeeded') process.exit(1)
-const second = await rowCounts()
-console.log('row counts unchanged after second import:', JSON.stringify(first) === JSON.stringify(second), second)
+// --once: a single import (e.g. when testing resumption, where each run waits for the scheduled job).
+if (!process.argv.includes('--once')) {
+  if ((await runImport('second')) !== 'succeeded') process.exit(1)
+  const second = await rowCounts()
+  console.log('row counts unchanged after second import:', JSON.stringify(first) === JSON.stringify(second), second)
+}
 
 const { data: hours } = await sb.from('reconciliation_hours').select('year, entries, hours, rounded_hours, billable_hours').eq('workspace_id', ws).order('year')
 console.table(hours)

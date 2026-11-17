@@ -15,7 +15,19 @@ export { STAGES }
 
 export const HARVEST_API = 'https://api.harvestapp.com/v2'
 const MAX_RUN_ATTEMPTS = 5
+const LEASE_MS = 120_000
 const WARNING_SAMPLES = 20
+
+// Messages people see. Each says what happened and what to do; none carries technical detail.
+export const MESSAGES = {
+  badToken: 'Harvest didn’t accept this token. Check you copied the whole personal access token and that it hasn’t been revoked, or create a new one.',
+  badAccount: 'Harvest has no account with that ID for this token. Copy the Account ID shown next to your token on Harvest’s Developers page.',
+  unreachable: 'Harvest isn’t responding right now. The import will retry automatically; if it keeps failing, try again later.',
+  rateLimited: 'Harvest is limiting how fast we can read your data. The import will continue automatically.',
+  tokenGone: 'The import stopped and its token has been deleted. Start a new import to finish.',
+  ourSide: 'Something went wrong on our side while saving your data. The import will retry automatically.',
+  gaveUp: 'The import stopped after several attempts. Your data so far is kept; start a new import to continue.',
+} as const
 
 export class PermanentError extends Error {}
 class TransientError extends Error {}
@@ -51,8 +63,8 @@ export async function harvestGet(h: HarvestAccess, url: string): Promise<Raw> {
           Accept: 'application/json',
         },
       })
-    } catch (e) {
-      if (attempt >= maxAttempts) throw new TransientError(`Network error calling Harvest: ${(e as Error).message}`)
+    } catch {
+      if (attempt >= maxAttempts) throw new TransientError(MESSAGES.unreachable)
       await h.sleep(backoff(attempt))
       continue
     }
@@ -62,23 +74,29 @@ export async function harvestGet(h: HarvestAccess, url: string): Promise<Raw> {
     await res.body?.cancel()
     const path = new URL(url).pathname
     if (status === 429 || status >= 500) {
-      if (attempt >= maxAttempts) throw new TransientError(`Harvest returned ${status} for ${path} after ${attempt} attempts`)
+      if (attempt >= maxAttempts) throw new TransientError(status === 429 ? MESSAGES.rateLimited : MESSAGES.unreachable)
       await h.sleep(status === 429 && retryAfter > 0 ? retryAfter * 1000 : backoff(attempt))
       continue
     }
-    if (status === 401) throw new PermanentError('Harvest rejected the access token (401). Check the token and the account ID.')
+    if (status === 401) throw new PermanentError(MESSAGES.badToken)
+    // Harvest answers 404 "No such account." for an account ID the token can't use (checked live).
+    if (status === 404 && path.endsWith('/users/me')) throw new PermanentError(MESSAGES.badAccount)
     if (status === 403) throw new SkipStage(`No permission for ${path} (403)`)
-    throw new PermanentError(`Harvest returned ${status} for ${path}`)
+    throw new PermanentError(`Harvest returned an unexpected response (${status}) for ${path.replace('/v2/', '')}.`)
   }
 }
 
-/** Quick credential check before an import is created. Returns the Harvest user's name. */
-export async function checkHarvestAccess(h: HarvestAccess): Promise<string> {
+export type HarvestRole = 'administrator' | 'manager' | 'member'
+
+/** Quick credential check before an import is created: who the token belongs to, and their Harvest role. */
+export async function checkHarvestAccess(h: HarvestAccess): Promise<{ name: string; role: HarvestRole }> {
   try {
     const me = await harvestGet({ ...h, maxAttempts: 3 }, `${h.baseUrl}/users/me`)
-    return [me.first_name, me.last_name].filter(Boolean).join(' ')
+    const roles: string[] = me.access_roles ?? []
+    const role: HarvestRole = roles.includes('administrator') ? 'administrator' : roles.includes('manager') ? 'manager' : 'member'
+    return { name: [me.first_name, me.last_name].filter(Boolean).join(' '), role }
   } catch (e) {
-    if (e instanceof SkipStage) throw new PermanentError('Harvest refused access (403). Check the account ID.')
+    if (e instanceof SkipStage) throw new PermanentError(MESSAGES.badAccount)
     throw e
   }
 }
@@ -149,7 +167,13 @@ export interface RunOptions {
   fetch?: typeof fetch
   sleep?: (ms: number) => Promise<void>
   budgetMs?: number
+  /** Records per Harvest page (max and default 2000). Smaller only to force hand-offs in tests. */
+  pageSize?: number
+  /** Records one run may process before handing off (keeps a run inside the CPU limit). */
+  recordsPerRun?: number
   now?: () => number
+  /** Technical detail of failures, for server logs only (never shown to people). */
+  log?: (message: string) => void
 }
 
 export type RunResult = 'done' | 'more' | 'retry' | 'failed' | 'busy'
@@ -160,18 +184,27 @@ interface Progress {
   skipped: string[]
   warnings: number
   warning_samples: string[]
+  /** Number of runs that have worked on this import (hand-offs + resumes + 1). */
+  runs: number
+  harvest_role?: string
+  company_currency?: string
 }
 
 export async function runImport(o: RunOptions): Promise<RunResult> {
   const now = o.now ?? Date.now
   const start = now()
   const budget = o.budgetMs ?? 100_000
+  // Edge Functions get 2 s of CPU per request; fetching and parsing Harvest pages costs about
+  // 25 µs a record there (measured locally), so a run stops well before that and hands off.
+  const recordsPerRun = o.recordsPerRun ?? 10_000
   const iso = (ms: number) => new Date(ms).toISOString()
   const db = o.db
+  // A run renews its lease on every page; if it dies, the scheduled job resumes it once the lease lapses.
+  const lease = () => iso(now() + LEASE_MS)
 
   // Claim the import: only one worker at a time, and only once any previous lease has expired.
   const { data: imp, error: claimErr } = await db.from('imports')
-    .update({ status: 'running', locked_until: iso(start + budget + 120_000), heartbeat_at: iso(start) })
+    .update({ status: 'running', locked_until: lease(), heartbeat_at: iso(start) })
     .eq('id', o.importId).in('status', ['queued', 'running'])
     .or(`locked_until.is.null,locked_until.lt."${iso(start)}"`)
     .select('*').maybeSingle()
@@ -179,12 +212,14 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
   if (!imp) return 'busy'
 
   const ws: string = imp.workspace_id
-  const progress: Progress = { stage: 0, next_url: null, skipped: [], warnings: 0, warning_samples: [], ...imp.progress }
+  const progress: Progress = { stage: 0, next_url: null, skipped: [], warnings: 0, warning_samples: [], runs: 0, ...imp.progress }
+  progress.runs++
   const counts: Record<string, number> = { ...imp.counts }
+  const pageSize = Math.min(Math.max(Math.trunc(o.pageSize ?? 2000), 1), 2000)
 
   const save = async (extra: Row = {}) => {
     const { error } = await db.from('imports').update({
-      counts, progress, heartbeat_at: iso(now()), locked_until: iso(now() + budget + 120_000), ...extra,
+      counts, progress, heartbeat_at: iso(now()), locked_until: lease(), ...extra,
     }).eq('id', o.importId)
     if (error) throw new Error(`Saving progress failed: ${error.message}`)
   }
@@ -192,10 +227,7 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
 
   try {
     const { data: secret } = await db.from('import_secrets').select('token_ciphertext').eq('import_id', o.importId).maybeSingle()
-    if (!secret) throw new PermanentError('The Harvest token is no longer stored. Start a new import.')
-    const { data: wsRow, error: wsErr } = await db.from('workspaces').select('default_currency').eq('id', ws).single()
-    if (wsErr) throw new Error(`Reading workspace failed: ${wsErr.message}`)
-    const defaultCurrency: string = wsRow.default_currency
+    if (!secret) throw new PermanentError(MESSAGES.tokenGone)
 
     const h: HarvestAccess = {
       baseUrl: o.baseUrl ?? HARVEST_API,
@@ -205,6 +237,21 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
       fetch: o.fetch ?? fetch,
       sleep: o.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
     }
+
+    // The account's currency becomes the workspace default (people's rates are in it). Once per import.
+    if (!progress.company_currency) {
+      const company = await harvestGet(h, `${h.baseUrl}/company`)
+      const currency = typeof company.currency === 'string' && /^[A-Z]{3}$/.test(company.currency) ? company.currency : null
+      if (currency) {
+        const { error } = await db.from('workspaces').update({ default_currency: currency }).eq('id', ws)
+        if (error) throw new Error(`Setting workspace currency failed: ${error.message}`)
+      }
+      progress.company_currency = currency ?? 'unknown'
+    }
+    const { data: wsRow, error: wsErr } = await db.from('workspaces').select('default_currency').eq('id', ws).single()
+    if (wsErr) throw new Error(`Reading workspace failed: ${wsErr.message}`)
+    const defaultCurrency: string = wsRow.default_currency
+
     const ctx: m.MapCtx = {
       warn(msg) {
         progress.warnings++
@@ -213,13 +260,14 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
     }
     const handlers = makeHandlers(new Store(db, ws), ctx, defaultCurrency)
 
+    let processed = 0
     while (progress.stage < STAGES.length) {
-      if (now() - start > budget) {
+      if (now() - start > budget || processed >= recordsPerRun) {
         await save({ locked_until: null })
         return 'more'
       }
       const stage = STAGES[progress.stage]
-      const url = progress.next_url ?? `${h.baseUrl}/${stage}?per_page=2000`
+      const url = progress.next_url ?? `${h.baseUrl}/${stage}?per_page=${pageSize}`
       let page: Raw
       try {
         page = await harvestGet(h, url)
@@ -233,6 +281,7 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
       }
       const rows = (page[stage] ?? []) as Raw[]
       await handlers[stage](rows)
+      processed += rows.length
       counts[stage] = (counts[stage] ?? 0) + rows.length
       progress.next_url = page.links?.next ?? null
       if (!progress.next_url) progress.stage++
@@ -243,9 +292,13 @@ export async function runImport(o: RunOptions): Promise<RunResult> {
     await deleteSecret()
     return 'done'
   } catch (e) {
-    const message = (e as Error).message
+    // Our own and Harvest's errors carry plain messages; anything else (database, code) is logged, not shown.
+    const plain = e instanceof PermanentError || e instanceof TransientError
+    if (!plain) o.log?.(`import ${o.importId}: ${(e as Error).message}`)
     const attempts = (imp.attempts ?? 0) + 1
-    if (e instanceof PermanentError || attempts >= MAX_RUN_ATTEMPTS) {
+    const giveUp = !(e instanceof PermanentError) && attempts >= MAX_RUN_ATTEMPTS
+    const message = giveUp ? MESSAGES.gaveUp : plain ? (e as Error).message : MESSAGES.ourSide
+    if (e instanceof PermanentError || giveUp) {
       await db.from('imports').update({
         counts, progress, status: 'failed', error: message, attempts, finished_at: iso(now()), locked_until: null,
       }).eq('id', o.importId)

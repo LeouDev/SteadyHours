@@ -14,7 +14,8 @@ export function fixture(name: string): any {
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
 
 /** In-memory Harvest API v2 serving the fixtures, with optional 429s and network failures. */
-export function fakeHarvest(opts: { rateLimitOnce?: string[]; networkFailures?: number } = {}) {
+/** `forbid`: record types answered with 403, as for a token without Administrator or Manager rights. */
+export function fakeHarvest(opts: { rateLimitOnce?: string[]; networkFailures?: number; forbid?: string[] } = {}) {
   const calls: string[] = []
   const limited = new Set(opts.rateLimitOnce ?? [])
   let failures = opts.networkFailures ?? 0
@@ -30,7 +31,9 @@ export function fakeHarvest(opts: { rateLimitOnce?: string[]; networkFailures?: 
       return new Response('{"error":"invalid_token"}', { status: 401 })
     }
     const name = url.pathname.replace('/v2/', '')
+    if (headers['Harvest-Account-Id'] !== '123456') return new Response('No such account.', { status: 404 })
     if (limited.delete(name)) return new Response('', { status: 429, headers: { 'Retry-After': '2' } })
+    if (opts.forbid?.includes(name)) return new Response('{"error":"forbidden"}', { status: 403 })
     if (name === 'users/me') return json(fixture('users').users[0])
     if (name === 'time_entries' && url.searchParams.get('cursor')) return json(fixture('time_entries_2'))
     return json(fixture(name))

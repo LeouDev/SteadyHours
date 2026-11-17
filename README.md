@@ -67,6 +67,17 @@ npm run harvest:fake
 npm run e2e
 ```
 
+Load test (100,000 time entries, 2,000 invoices, 200 projects; the fake server enforces Harvest's
+100 requests per 15 s and writes the true totals for reconciliation):
+
+```bash
+TRUTH_FILE=/tmp/truth.json FAKE_HARVEST_BASE=http://host.docker.internal:54399/v2 node --experimental-strip-types scripts/fake-harvest-load.ts
+```
+
+```bash
+TRUTH_FILE=/tmp/truth.json node --experimental-strip-types scripts/load-test.ts
+```
+
 ## Deploying
 
 1. `supabase link --project-ref <ref>` then `supabase db push`.
@@ -76,8 +87,35 @@ npm run e2e
    select vault.create_secret('https://<ref>.supabase.co', 'project_url');
    select vault.create_secret('<service role key>', 'import_cron_key');
    ```
-4. Auth: set the Site URL and redirect URLs to the front end's domain; turn on email confirmation.
-5. Front end: `npm run build`, host `dist/` as a single-page app (all paths → `index.html`) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+4. Auth (Authentication → URL Configuration): Site URL = the front end's URL; Redirect URLs = `<that URL>/**`.
+   Email confirmation stays on. Supabase's built-in email only reaches your own team at about 2 emails an
+   hour, so real sign-ups need custom SMTP (Authentication → SMTP Settings).
+5. Front end on Vercel, built locally so no source or `.env` file is uploaded:
+   `vercel pull --environment=production`, `vercel build --prod`, `vercel deploy --prebuilt --prod`.
+   The project needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (public values) and `vercel.json`
+   sends every app path to `index.html`.
+
+### Import settings (function secrets)
+
+| Secret | Default | Purpose |
+|---|---|---|
+| `IMPORT_TOKEN_KEY` | (required) | AES key for the Harvest token while an import runs |
+| `HARVEST_CONTACT` | (required) | URL or email in the User-Agent Harvest requires |
+| `IMPORT_RECORDS_PER_RUN` | 10000 | Records one run processes before handing off; keeps a run inside the 2 s CPU limit |
+| `IMPORT_BUDGET_MS` | 100000 | Wall-clock limit per run |
+| `HARVEST_PAGE_SIZE` | 2000 | Testing only: smaller pages force more hand-offs |
+| `IMPORT_SELF_CHAIN` | on | Testing only: `off` leaves every continuation to pg_cron |
+
+## Launch gate
+
+`node scripts/gate.mjs` prints sign-ups, imports started, completed and failed, and record counts per
+workspace from the hosted database. It reads `SUPABASE_PROJECT_REF` and `SUPABASE_DB_PASSWORD` from `.env`.
+The same numbers are in the views `internal.gate_summary` and `internal.gate_workspaces` (SQL editor only;
+app users cannot read them). They hold counts, never names, emails or workspace contents.
+
+## CI
+
+`.github/workflows/test.yml` starts a local Supabase stack and runs `npm test` and `npm run build` on every push.
 
 ## How the import works
 
@@ -86,9 +124,11 @@ npm run e2e
 - Stages run in order: users, clients, contacts, projects, tasks, task assignments, invoices (with lines),
   estimates, expenses, time entries. Each page is 2,000 records; it follows Harvest's `links.next` and only
   if that link is on Harvest's own host.
+- First it reads `GET /v2/company` and makes the account's currency the workspace default.
 - Every row upserts on `(workspace_id, source_id)`. After each page, counts and the next URL are saved together.
-  When the time box ends, the function calls itself to continue; if a run dies, pg_cron resumes it after the
-  lease expires (checked every minute).
-- 429: waits for `Retry-After`. 5xx and network errors: exponential backoff. 401 or other 4xx: fails at once.
-  403 on a record type: skipped and shown on the progress screen (non-admin tokens). Five failed runs: fails.
+  After 10,000 records (or the wall-clock budget) a run hands off to a fresh invocation; each run renews a
+  2-minute lease, and if a run dies pg_cron resumes the import once the lease lapses (checked every minute).
+- 429: waits for `Retry-After`. 5xx and network errors: exponential backoff. 401: "token not accepted".
+  404 on `users/me`: "no account with that ID". 403 on a record type: skipped, shown on Import and Reconcile.
+  Five failed runs in a row: stops. Messages people see are plain; technical detail goes to the function log only.
 - The token is deleted on success or permanent failure. It is never logged or returned.

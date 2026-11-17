@@ -3,7 +3,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { encryptToken, importKey } from '../supabase/functions/_shared/crypto.ts'
-import { runImport, type RunResult } from '../supabase/functions/_shared/harvest/engine.ts'
+import { MESSAGES, runImport, type RunResult } from '../supabase/functions/_shared/harvest/engine.ts'
 import { fakeHarvest, GOOD_TOKEN, HARVEST_BASE, localStack } from './helpers.ts'
 
 const env = localStack()
@@ -84,10 +84,9 @@ describe('Harvest import against the local database', () => {
     // First import: one page per run (forces resume from saved progress) and a 429 on clients.
     const harvest = fakeHarvest({ rateLimitOnce: ['clients'] })
     const sleeps: number[] = []
-    let t = Date.now()
     const id = await createImport(a.ws, a.id)
     const results = await runToEnd(id, harvest, {
-      budgetMs: 1500, now: () => (t += 1000), sleep: async (ms: number) => { sleeps.push(ms) },
+      recordsPerRun: 1, sleep: async (ms: number) => { sleeps.push(ms) },
     })
     expect(results.at(-1)).toBe('done')
     expect(results.filter((r) => r === 'more').length).toBeGreaterThan(5)
@@ -199,7 +198,7 @@ describe('Harvest import against the local database', () => {
     expect(await run(id, fakeHarvest())).toBe('failed')
     const imp = await getImport(id)
     expect(imp).toMatchObject({ status: 'failed', secrets: 0 })
-    expect(imp.error).toMatch(/401/)
+    expect(imp.error).toBe(MESSAGES.badToken)
     expect(imp.error).not.toContain('wrong-token')
   })
 
@@ -209,7 +208,7 @@ describe('Harvest import against the local database', () => {
     // More network failures than one request retries: the run stops and keeps its token.
     const harvest = fakeHarvest({ networkFailures: 8 })
     expect(await run(id, harvest)).toBe('retry')
-    expect(await getImport(id)).toMatchObject({ status: 'running', secrets: 1, attempts: 1 })
+    expect(await getImport(id)).toMatchObject({ status: 'running', secrets: 1, attempts: 1, error: MESSAGES.unreachable })
     expect(await run(id, harvest)).toBe('busy') // lease still held
     await service.from('imports').update({ locked_until: new Date(Date.now() - 1000).toISOString() }).eq('id', id)
     expect(await runToEnd(id, harvest)).toEqual(['done'])
@@ -217,11 +216,47 @@ describe('Harvest import against the local database', () => {
     expect(await getImport(id)).toMatchObject({ status: 'succeeded', secrets: 0, attempts: 0 })
   })
 
+  it('uses the Harvest account currency as the workspace default', async () => {
+    const { data } = await service.from('workspaces').select('default_currency').eq('id', a.ws).single()
+    expect(data!.default_currency).toBe('GBP')
+  })
+
+  it('counts the runs an import took', async () => {
+    const { data } = await service.from('imports').select('progress').eq('workspace_id', a.ws).order('started_at')
+    expect(data![0].progress.runs).toBeGreaterThan(5) // one page per run in beforeAll
+    expect(data![1].progress.runs).toBe(1)
+  })
+
+  it('imports what a limited token can see and records the refused types', async () => {
+    const c = await newUser('member-token')
+    const id = await createImport(c.ws, c.id)
+    expect(await runToEnd(id, fakeHarvest({ forbid: ['users', 'invoices', 'estimates'] }))).toEqual(['done'])
+    const imp = await getImport(id)
+    expect(imp.progress.skipped).toEqual(['users', 'invoices', 'estimates'])
+    const counts = await rowCounts(c.ws)
+    expect(counts).toMatchObject({ invoices: 0, invoice_items: 0, estimates: 0, time_entries: 6 })
+    // Time that Harvest says is invoiced stays marked billed even though the invoice was refused.
+    const { data } = await service.from('time_entries').select('source_id, invoice_id, is_billed').eq('workspace_id', c.ws).eq('source_id', 11001).single()
+    expect(data).toMatchObject({ invoice_id: null, is_billed: true })
+  })
+
+  it('keeps the launch-gate views away from app users', async () => {
+    for (const view of ['gate_summary', 'gate_workspaces']) {
+      const signedIn = await a.client.schema('internal').from(view).select('*')
+      expect(signedIn.data, view).toBeNull()
+      expect(signedIn.error, view).not.toBeNull()
+      const anon = await createClient(env.API_URL, env.ANON_KEY, { auth: { persistSession: false } }).schema('internal').from(view).select('*')
+      expect(anon.data, view).toBeNull()
+    }
+  })
+
   it('allows only one active import per workspace', async () => {
     const c = await newUser('single')
     await createImport(c.ws, c.id)
     const { error } = await service.from('imports').insert({ workspace_id: c.ws, source_account_id: '1' })
     expect(error?.code).toBe('23505')
+    // Leave nothing queued for the scheduled job: its token was encrypted with this run's throwaway key.
+    await service.from('imports').delete().eq('workspace_id', c.ws)
   })
 })
 

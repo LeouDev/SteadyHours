@@ -6,6 +6,11 @@ import { Empty, PageTitle, useWs } from './AppLayout.tsx'
 
 type HoursRow = { year: number; entries: number; hours: number; rounded_hours: number; billable_hours: number }
 type InvRow = { year: number | null; currency: string; status: string; invoices: number; total_cents: number; due_cents: number }
+// Harvest record types as people call them; matches the import stages.
+const TYPE_LABEL: Record<string, string> = {
+  users: 'People', clients: 'Clients', contacts: 'Contacts', projects: 'Projects', tasks: 'Tasks',
+  task_assignments: 'Task assignments', invoices: 'Invoices', estimates: 'Estimates', expenses: 'Expenses', time_entries: 'Time entries',
+}
 const STATUSES = [['draft', 'Draft'], ['sent', 'Open'], ['paid', 'Paid'], ['closed', 'Closed']] as const
 
 export function ReconcilePage() {
@@ -13,17 +18,22 @@ export function ReconcilePage() {
   const q = useQuery({
     queryKey: ['reconcile', ws.id],
     queryFn: async () => {
-      const [h, inv, bad] = await Promise.all([
+      const [h, inv, bad, last] = await Promise.all([
         supabase.from('reconciliation_hours').select('*').eq('workspace_id', ws.id).order('year'),
         supabase.from('reconciliation_invoices').select('*').eq('workspace_id', ws.id).order('year').order('currency'),
         supabase.from('invoice_mismatches').select('id, number, currency, total_cents, items_cents').eq('workspace_id', ws.id),
+        supabase.from('imports').select('status, progress').eq('workspace_id', ws.id).order('started_at', { ascending: false }).limit(1).maybeSingle(),
       ])
-      return { hours: must(h) as HoursRow[], invoices: must(inv) as InvRow[], mismatches: must(bad) }
+      return {
+        hours: must(h) as HoursRow[], invoices: must(inv) as InvRow[], mismatches: must(bad),
+        last: must(last) as { status: string; progress: { skipped?: string[] } } | null,
+      }
     },
   })
   if (q.isLoading) return <p className="text-muted">Loading…</p>
   if (q.error) return <p role="alert" className="text-danger">{q.error.message}</p>
-  const { hours: hrs, invoices, mismatches } = q.data!
+  const { hours: hrs, invoices, mismatches, last } = q.data!
+  const refused = last?.progress.skipped ?? []
 
   // One row per year and currency, one column per status.
   const groups = new Map<string, { year: number | null; currency: string; by: Record<string, InvRow> }>()
@@ -39,6 +49,23 @@ export function ReconcilePage() {
         Reconcile with Harvest
       </PageTitle>
 
+      {refused.length > 0 && (
+        <div role="alert" className="card mb-6 border-warn p-4 text-sm text-ink">
+          <p className="font-semibold text-warn">Not imported: {refused.map((t) => TYPE_LABEL[t] ?? t).join(', ')}</p>
+          <p className="mt-1">
+            Harvest refused these for the token used in the last import, so the totals below leave them out. Run the
+            import again with a Harvest Administrator’s token to bring them across.{' '}
+            <Link to="../import" className="text-accent underline">Go to Import</Link>
+          </p>
+        </div>
+      )}
+      {last && last.status !== 'succeeded' && (
+        <p className="card mb-6 p-4 text-sm text-muted">
+          {last.status === 'failed'
+            ? 'The last import stopped before finishing, so these totals may be incomplete.'
+            : 'An import is still running; these totals will change until it finishes.'}
+        </p>
+      )}
       {mismatches.length > 0 && (
         <div role="alert" className="card mb-6 border-danger p-4 text-sm text-danger">
           {mismatches.length} invoice{mismatches.length === 1 ? '' : 's'} where lines, discount and taxes don’t add up to the total Harvest gave:{' '}

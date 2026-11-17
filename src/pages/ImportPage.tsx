@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FunctionsHttpError } from '@supabase/supabase-js'
+import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { STAGES, type Stage } from '../../supabase/functions/_shared/harvest/stages.ts'
+import { ImportScope } from '../lib/scope.tsx'
 import { must, supabase } from '../lib/supabase.ts'
 import { PageTitle, useWs } from './AppLayout.tsx'
 
@@ -15,7 +16,7 @@ type ImportRow = {
   id: string
   status: 'queued' | 'running' | 'succeeded' | 'failed'
   counts: Partial<Record<Stage, number>>
-  progress: { stage?: number; skipped?: string[]; warnings?: number; warning_samples?: string[] }
+  progress: { stage?: number; skipped?: string[]; warnings?: number; warning_samples?: string[]; harvest_role?: string; runs?: number }
   error: string | null
   heartbeat_at: string | null
   started_at: string
@@ -27,8 +28,9 @@ const active = (i?: ImportRow | null) => i?.status === 'queued' || i?.status ===
 async function callImport(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('harvest-import', { body })
   if (error) {
+    if (error instanceof FunctionsFetchError) throw new Error('We couldn’t reach the import service. Check your connection and try again.')
     const detail = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null
-    throw new Error(detail?.error ?? error.message)
+    throw new Error(detail?.error ?? 'The import service had a problem. Please try again in a minute.')
   }
   return data
 }
@@ -47,9 +49,13 @@ export function ImportPage() {
 
   return (
     <>
-      <PageTitle sub="Everything comes across: people, clients, contacts, projects, tasks, time, expenses, invoices and estimates. Running it again updates what changed and never duplicates.">
+      <PageTitle sub="Brings across the Harvest records listed below. Running it again updates what changed and never duplicates.">
         Import from Harvest
       </PageTitle>
+      <details open={!imp} className="card mb-6 max-w-3xl p-5">
+        <summary className="cursor-pointer font-medium text-ink">What comes across, and what doesn’t</summary>
+        <ImportScope className="mt-4" />
+      </details>
       {imp && <Progress imp={imp} onResume={() => callImport({ action: 'resume', import_id: imp.id }).then(() => qc.invalidateQueries({ queryKey: ['import', ws.id] }))} />}
       {!active(imp) && canImport && <StartForm onStarted={() => qc.invalidateQueries({ queryKey: ['import', ws.id] })} again={!!imp} />}
       {!canImport && <p className="text-muted">Only owners and admins can run an import.</p>}
@@ -76,10 +82,19 @@ function StartForm({ onStarted, again }: { onStarted: () => void; again: boolean
   return (
     <form onSubmit={submit} className="card mt-6 max-w-xl space-y-4 p-6">
       <h2 className="font-semibold text-ink">{again ? 'Import again' : 'Connect your Harvest account'}</h2>
-      <p className="text-sm text-muted">
-        In Harvest, open the Developers page at id.getharvest.com/developers and create a personal access token.
-        That page shows the token and your account ID. The token is encrypted while the import runs and deleted when it finishes.
-      </p>
+      <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+        <li>In Harvest, go to <span className="font-medium">id.getharvest.com/developers</span> and choose <span className="font-medium">Create new personal access token</span>.</li>
+        <li>Copy the token and the <span className="font-medium">Account ID</span> shown with it into the fields below.</li>
+      </ol>
+      <div className="rounded-lg bg-paper p-3 text-sm text-ink ring-1 ring-line">
+        <p className="font-medium">Use a token that belongs to a Harvest Administrator.</p>
+        <p className="mt-1 text-muted">
+          A Manager’s token gets people, invoices and estimates only if their Harvest permissions allow it. With any
+          other role Harvest refuses people, invoices and estimates, and may limit time and expenses to what that person
+          can see. Anything refused is listed on the Reconcile screen.
+        </p>
+      </div>
+      <p className="text-sm text-muted">The token is encrypted while the import runs and deleted as soon as it finishes or stops.</p>
       <div>
         <label htmlFor="account" className="block text-sm font-medium text-ink">Account ID</label>
         <input id="account" inputMode="numeric" required pattern="\d+" value={accountId} onChange={(e) => setAccountId(e.target.value.trim())} className="field mt-1" />
@@ -128,7 +143,15 @@ function Progress({ imp, onResume }: { imp: ImportRow; onResume: () => void }) {
         })}
       </dl>
       {skipped.size > 0 && (
-        <p className="mt-4 text-sm text-warn">Harvest refused some record types for this token. An administrator’s token imports everything.</p>
+        <p className="mt-4 text-sm text-warn">
+          Harvest refused {[...skipped].map((s) => LABELS[s as Stage]?.toLowerCase() ?? s).join(', ')} for this token, so they are not in
+          your archive. Run the import again with a Harvest Administrator’s token to bring them across.
+        </p>
+      )}
+      {imp.progress.harvest_role && imp.progress.harvest_role !== 'administrator' && skipped.size === 0 && (
+        <p className="mt-4 text-sm text-muted">
+          This token belongs to a Harvest {imp.progress.harvest_role}. Harvest may show it less than an Administrator would.
+        </p>
       )}
       {!!imp.progress.warnings && (
         <details className="mt-4 text-sm">
@@ -136,7 +159,7 @@ function Progress({ imp, onResume }: { imp: ImportRow; onResume: () => void }) {
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">{imp.progress.warning_samples?.map((w) => <li key={w}>{w}</li>)}</ul>
         </details>
       )}
-      {imp.error && <p role="alert" className="mt-4 text-sm text-danger">{imp.error}{active(imp) && ' Retrying automatically.'}</p>}
+      {imp.error && <p role="alert" className={`mt-4 text-sm ${active(imp) ? 'text-warn' : 'text-danger'}`}>{imp.error}</p>}
       {stalled && <button onClick={onResume} className="btn-secondary mt-4">Resume import</button>}
     </section>
   )

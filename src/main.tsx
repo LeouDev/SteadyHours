@@ -5,6 +5,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router'
 import { PRODUCT_NAME } from '../supabase/functions/_shared/config.ts'
 import './index.css'
 import { AppLayout } from './pages/AppLayout.tsx'
+import { AuthCallback, CheckEmail, ForgotPassword, ResetPassword } from './pages/Auth.tsx'
 import { ClientsPage, InvoicePage, InvoicesPage, ProjectsPage, TimePage } from './pages/Archive.tsx'
 import { ExportPage } from './pages/ExportPage.tsx'
 import { ImportPage } from './pages/ImportPage.tsx'
@@ -16,6 +17,10 @@ document.title = `${PRODUCT_NAME} · Import your Harvest account`
 const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
   { path: '/signin', element: <SignIn /> },
+  { path: '/check-email', element: <CheckEmail /> },
+  { path: '/forgot-password', element: <ForgotPassword /> },
+  { path: '/reset-password', element: <ResetPassword /> },
+  { path: '/auth', element: <AuthCallback /> },
   {
     path: '/app',
     element: <AppLayout />,

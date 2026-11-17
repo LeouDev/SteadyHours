@@ -29,3 +29,5 @@ supabase/.temp
 
 # Secrets for the hosted project and live Harvest test (never commit)
 .env
+.vercel
+.env*

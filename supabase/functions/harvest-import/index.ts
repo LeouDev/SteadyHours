@@ -5,13 +5,17 @@
 import { createClient } from '@supabase/supabase-js'
 import { PRODUCT_NAME } from '../_shared/config.ts'
 import { encryptToken, importKey } from '../_shared/crypto.ts'
-import { checkHarvestAccess, HARVEST_API, PermanentError, runImport } from '../_shared/harvest/engine.ts'
+import { checkHarvestAccess, HARVEST_API, MESSAGES, PermanentError, runImport } from '../_shared/harvest/engine.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const BASE_URL = Deno.env.get('HARVEST_API_BASE') ?? HARVEST_API
 const USER_AGENT = `${PRODUCT_NAME} Importer (${Deno.env.get('HARVEST_CONTACT') ?? 'set HARVEST_CONTACT'})`
 const BUDGET_MS = Number(Deno.env.get('IMPORT_BUDGET_MS') ?? 100_000)
+// Test knobs: smaller Harvest pages force hand-offs; IMPORT_SELF_CHAIN=off leaves resumption to pg_cron.
+const PAGE_SIZE = Number(Deno.env.get('HARVEST_PAGE_SIZE') ?? 2000)
+const SELF_CHAIN = Deno.env.get('IMPORT_SELF_CHAIN') !== 'off'
+const RECORDS_PER_RUN = Number(Deno.env.get('IMPORT_RECORDS_PER_RUN') ?? 10_000)
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -27,8 +31,11 @@ const keyPromise = importKey(Deno.env.get('IMPORT_TOKEN_KEY') ?? '')
 /** Run one time-boxed chunk; if work remains, hand off to a fresh invocation. */
 async function runAndChain(importId: string) {
   try {
-    const result = await runImport({ db: admin, importId, key: await keyPromise, userAgent: USER_AGENT, baseUrl: BASE_URL, budgetMs: BUDGET_MS })
-    if (result === 'more') {
+    const result = await runImport({
+      db: admin, importId, key: await keyPromise, userAgent: USER_AGENT, baseUrl: BASE_URL,
+      budgetMs: BUDGET_MS, pageSize: PAGE_SIZE, recordsPerRun: RECORDS_PER_RUN, log: (m) => console.error(m),
+    })
+    if (result === 'more' && SELF_CHAIN) {
       await fetch(`${SUPABASE_URL}/functions/v1/harvest-import`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
@@ -56,7 +63,7 @@ Deno.serve(async (req) => {
   let userId: string | null = null
   if (!isService) {
     const { data, error } = await admin.auth.getUser(bearer)
-    if (error || !data.user) return json({ error: 'Not signed in' }, 401)
+    if (error || !data.user) return json({ error: 'Your session has expired. Sign in again.' }, 401)
     userId = data.user.id
   }
 
@@ -71,38 +78,41 @@ Deno.serve(async (req) => {
     const workspaceId = String(body.workspace_id ?? '')
     const accountId = String(body.account_id ?? '').trim()
     const token = String(body.token ?? '').trim()
-    if (!userId || !(await canManage(userId, workspaceId))) return json({ error: 'Only owners and admins can import' }, 403)
-    if (!/^\d{1,12}$/.test(accountId)) return json({ error: 'The account ID is a number, shown on Harvest’s Developers page.' }, 400)
-    if (token.length < 10 || token.length > 500) return json({ error: 'That doesn’t look like a personal access token.' }, 400)
+    if (!userId || !(await canManage(userId, workspaceId))) return json({ error: 'Only the workspace owner or an admin can run an import.' }, 403)
+    if (!/^\d{1,12}$/.test(accountId)) return json({ error: 'The Account ID is a number, shown next to your token on Harvest’s Developers page.' }, 400)
+    if (token.length < 10 || token.length > 500) return json({ error: 'That doesn’t look like a personal access token. Copy the whole token from Harvest’s Developers page.' }, 400)
 
+    let role: string
     try {
-      await checkHarvestAccess({ baseUrl: BASE_URL, accountId, token, userAgent: USER_AGENT, fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)) })
+      ({ role } = await checkHarvestAccess({ baseUrl: BASE_URL, accountId, token, userAgent: USER_AGENT, fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)) }))
     } catch (e) {
-      return json({ error: e instanceof PermanentError ? e.message : 'Could not reach Harvest. Try again in a minute.' }, 400)
+      return json({ error: e instanceof PermanentError ? e.message : 'Harvest isn’t responding right now. Try again in a few minutes.' }, 400)
     }
 
     const { data: imp, error } = await admin.from('imports')
-      .insert({ workspace_id: workspaceId, started_by: userId, source_account_id: accountId })
+      .insert({ workspace_id: workspaceId, started_by: userId, source_account_id: accountId, progress: { harvest_role: role } })
       .select('id').single()
     if (error) {
-      if (error.code === '23505') return json({ error: 'An import is already running for this workspace.' }, 409)
-      return json({ error: 'Could not start the import.' }, 500)
+      if (error.code === '23505') return json({ error: 'An import is already running for this workspace. Wait for it to finish.' }, 409)
+      console.error(`start import: ${error.message}`)
+      return json({ error: MESSAGES.ourSide.replace(' The import will retry automatically.', ' Please try again.') }, 500)
     }
     const { error: secretErr } = await admin.from('import_secrets')
       .insert({ import_id: imp.id, token_ciphertext: await encryptToken(await keyPromise, token) })
     if (secretErr) {
-      await admin.from('imports').update({ status: 'failed', error: 'Could not store the token.' }).eq('id', imp.id)
-      return json({ error: 'Could not start the import.' }, 500)
+      console.error(`store token: ${secretErr.message}`)
+      await admin.from('imports').update({ status: 'failed', error: 'The import could not start. Please try again.' }).eq('id', imp.id)
+      return json({ error: 'The import could not start. Please try again.' }, 500)
     }
     EdgeRuntime.waitUntil(runAndChain(imp.id))
-    return json({ import_id: imp.id }, 202)
+    return json({ import_id: imp.id, harvest_role: role }, 202)
   }
 
   if (body.action === 'resume') {
     const importId = String(body.import_id ?? '')
     if (!isService) {
       const { data: imp } = await admin.from('imports').select('workspace_id').eq('id', importId).maybeSingle()
-      if (!imp || !(await canManage(userId!, imp.workspace_id))) return json({ error: 'Not allowed' }, 403)
+      if (!imp || !(await canManage(userId!, imp.workspace_id))) return json({ error: 'Only the workspace owner or an admin can resume this import.' }, 403)
     }
     EdgeRuntime.waitUntil(runAndChain(importId))
     return json({ ok: true }, 202)
