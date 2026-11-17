@@ -1,0 +1,111 @@
+{
+  "expenses": [
+    {
+      "id": 10001,
+      "notes": "",
+      "total_cost": 45.6,
+      "units": 1,
+      "is_closed": false,
+      "approval_status": "approved",
+      "is_locked": false,
+      "is_billed": false,
+      "locked_reason": null,
+      "spent_date": "2025-01-22",
+      "created_at": "2025-11-16T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "billable": true,
+      "receipt": null,
+      "user": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "user_assignment": {
+        "id": 1,
+        "is_project_manager": false,
+        "is_active": true,
+        "budget": null,
+        "created_at": "2025-11-16T09:00:00Z",
+        "updated_at": "2025-11-16T09:00:00Z",
+        "hourly_rate": 100
+      },
+      "project": {
+        "id": 4001,
+        "name": "Website rebuild",
+        "code": "ACM-1"
+      },
+      "expense_category": {
+        "id": 1,
+        "name": "Travel",
+        "unit_price": null,
+        "unit_name": null
+      },
+      "client": {
+        "id": 2001,
+        "name": "Acme Ltd",
+        "currency": "GBP"
+      },
+      "invoice": null
+    },
+    {
+      "id": 10002,
+      "notes": "",
+      "total_cost": 50,
+      "units": 1,
+      "is_closed": false,
+      "approval_status": "approved",
+      "is_locked": true,
+      "is_billed": true,
+      "locked_reason": "Expense is invoiced.",
+      "spent_date": "2023-03-20",
+      "created_at": "2025-11-16T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "billable": true,
+      "receipt": null,
+      "user": {
+        "id": 1002,
+        "name": "Dev Consultant"
+      },
+      "user_assignment": {
+        "id": 1,
+        "is_project_manager": false,
+        "is_active": true,
+        "budget": null,
+        "created_at": "2025-11-16T09:00:00Z",
+        "updated_at": "2025-11-16T09:00:00Z",
+        "hourly_rate": 100
+      },
+      "project": {
+        "id": 4004,
+        "name": "Legacy support",
+        "code": "OLD-9"
+      },
+      "expense_category": {
+        "id": 1,
+        "name": "Travel",
+        "unit_price": null,
+        "unit_name": null
+      },
+      "client": {
+        "id": 2004,
+        "name": "Old Client Inc",
+        "currency": "USD"
+      },
+      "invoice": {
+        "id": 7001,
+        "number": "INV-001"
+      }
+    }
+  ],
+  "per_page": 2000,
+  "total_pages": 1,
+  "total_entries": 2,
+  "next_page": null,
+  "previous_page": null,
+  "page": 1,
+  "links": {
+    "first": "{{BASE}}/expenses?page=1&per_page=2000",
+    "next": null,
+    "previous": null,
+    "last": "{{BASE}}/expenses?page=1&per_page=2000"
+  }
+}

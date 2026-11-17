@@ -1,0 +1,328 @@
+{
+  "invoices": [
+    {
+      "id": 7005,
+      "client_key": "ck7005",
+      "number": "INV-004",
+      "purchase_order": "",
+      "amount": 180,
+      "due_amount": 180,
+      "tax": null,
+      "tax_amount": null,
+      "tax2": null,
+      "tax2_amount": null,
+      "discount": null,
+      "discount_amount": 0,
+      "subject": "Services",
+      "notes": "Thank you",
+      "currency": "GBP",
+      "state": "draft",
+      "period_start": null,
+      "period_end": null,
+      "issue_date": "2025-03-01",
+      "due_date": "2025-03-01",
+      "payment_term": "upon receipt",
+      "payment_options": [],
+      "sent_at": null,
+      "paid_at": null,
+      "paid_date": null,
+      "closed_at": null,
+      "recurring_invoice_id": null,
+      "created_at": "2025-03-01T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "client": {
+        "id": 2001,
+        "name": "Acme Ltd"
+      },
+      "estimate": null,
+      "retainer": null,
+      "creator": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "line_items": [
+        {
+          "id": 8007,
+          "kind": "Service",
+          "description": "Discovery",
+          "quantity": 1.5,
+          "unit_price": 120,
+          "amount": 180,
+          "taxed": false,
+          "taxed2": false,
+          "project": {
+            "id": 4001,
+            "name": "Website rebuild",
+            "code": "ACM-1"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7004,
+      "client_key": "ck7004",
+      "number": "INV-004",
+      "purchase_order": "",
+      "amount": 324.72,
+      "due_amount": 124.72,
+      "tax": 8.25,
+      "tax_amount": 24.75,
+      "tax2": null,
+      "tax2_amount": null,
+      "discount": null,
+      "discount_amount": 0,
+      "subject": "Services",
+      "notes": "Thank you",
+      "currency": "GBP",
+      "state": "open",
+      "period_start": null,
+      "period_end": null,
+      "issue_date": "2025-02-01",
+      "due_date": "2025-02-01",
+      "payment_term": "upon receipt",
+      "payment_options": [],
+      "sent_at": "2025-02-01T12:00:00Z",
+      "paid_at": null,
+      "paid_date": null,
+      "closed_at": null,
+      "recurring_invoice_id": null,
+      "created_at": "2025-02-01T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "client": {
+        "id": 2001,
+        "name": "Acme Ltd"
+      },
+      "estimate": null,
+      "retainer": null,
+      "creator": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "line_items": [
+        {
+          "id": 8006,
+          "kind": "Service",
+          "description": "Development",
+          "quantity": 3,
+          "unit_price": 99.99,
+          "amount": 299.97,
+          "taxed": true,
+          "taxed2": false,
+          "project": {
+            "id": 4001,
+            "name": "Website rebuild",
+            "code": "ACM-1"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7003,
+      "client_key": "ck7003",
+      "number": "INV-003",
+      "purchase_order": "",
+      "amount": 165000,
+      "due_amount": 0,
+      "tax": 10,
+      "tax_amount": 15000,
+      "tax2": null,
+      "tax2_amount": null,
+      "discount": null,
+      "discount_amount": 0,
+      "subject": "Services",
+      "notes": "Thank you",
+      "currency": "JPY",
+      "state": "closed",
+      "period_start": null,
+      "period_end": null,
+      "issue_date": "2024-06-30",
+      "due_date": "2024-06-30",
+      "payment_term": "upon receipt",
+      "payment_options": [],
+      "sent_at": "2024-06-30T12:00:00Z",
+      "paid_at": null,
+      "paid_date": null,
+      "closed_at": "2024-09-01T00:00:00Z",
+      "recurring_invoice_id": null,
+      "created_at": "2024-06-30T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "client": {
+        "id": 2003,
+        "name": "Initech KK"
+      },
+      "estimate": null,
+      "retainer": null,
+      "creator": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "line_items": [
+        {
+          "id": 8005,
+          "kind": "Service",
+          "description": "Translation",
+          "quantity": 10,
+          "unit_price": 15000,
+          "amount": 150000,
+          "taxed": true,
+          "taxed2": false,
+          "project": {
+            "id": 4003,
+            "name": "Localisation",
+            "code": null
+          }
+        }
+      ]
+    },
+    {
+      "id": 7002,
+      "client_key": "ck7002",
+      "number": "INV-002",
+      "purchase_order": "",
+      "amount": 1426.56,
+      "due_amount": 0,
+      "tax": 20,
+      "tax_amount": 192,
+      "tax2": null,
+      "tax2_amount": null,
+      "discount": null,
+      "discount_amount": 0,
+      "subject": "Services",
+      "notes": "Thank you",
+      "currency": "EUR",
+      "state": "paid",
+      "period_start": null,
+      "period_end": null,
+      "issue_date": "2024-01-15",
+      "due_date": "2024-01-15",
+      "payment_term": "upon receipt",
+      "payment_options": [],
+      "sent_at": "2024-01-15T12:00:00Z",
+      "paid_at": "2024-02-01T10:00:00Z",
+      "paid_date": "2024-02-01",
+      "closed_at": null,
+      "recurring_invoice_id": null,
+      "created_at": "2024-01-15T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "client": {
+        "id": 2002,
+        "name": "Globex GmbH"
+      },
+      "estimate": null,
+      "retainer": null,
+      "creator": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "line_items": [
+        {
+          "id": 8003,
+          "kind": "Service",
+          "description": "Audit work",
+          "quantity": 8,
+          "unit_price": 120,
+          "amount": 960,
+          "taxed": true,
+          "taxed2": false,
+          "project": {
+            "id": 4002,
+            "name": "Audit",
+            "code": ""
+          }
+        },
+        {
+          "id": 8004,
+          "kind": "Product",
+          "description": "Licence",
+          "quantity": 1,
+          "unit_price": 274.56,
+          "amount": 274.56,
+          "taxed": false,
+          "taxed2": false,
+          "project": null
+        }
+      ]
+    },
+    {
+      "id": 7001,
+      "client_key": "ck7001",
+      "number": "INV-001",
+      "purchase_order": "",
+      "amount": 288.9,
+      "due_amount": 0,
+      "tax": 5,
+      "tax_amount": 13.5,
+      "tax2": 2,
+      "tax2_amount": 5.4,
+      "discount": 10,
+      "discount_amount": 30,
+      "subject": "Services",
+      "notes": "Thank you",
+      "currency": "USD",
+      "state": "paid",
+      "period_start": null,
+      "period_end": null,
+      "issue_date": "2023-03-31",
+      "due_date": "2023-03-31",
+      "payment_term": "upon receipt",
+      "payment_options": [],
+      "sent_at": "2023-03-31T12:00:00Z",
+      "paid_at": "2023-04-10T10:00:00Z",
+      "paid_date": "2023-04-10",
+      "closed_at": null,
+      "recurring_invoice_id": null,
+      "created_at": "2023-03-31T09:00:00Z",
+      "updated_at": "2025-11-16T09:00:00Z",
+      "client": {
+        "id": 2004,
+        "name": "Old Client Inc"
+      },
+      "estimate": null,
+      "retainer": null,
+      "creator": {
+        "id": 1001,
+        "name": "Rachel Owner"
+      },
+      "line_items": [
+        {
+          "id": 8001,
+          "kind": "Service",
+          "description": "Support",
+          "quantity": 10,
+          "unit_price": 25,
+          "amount": 250,
+          "taxed": true,
+          "taxed2": true,
+          "project": {
+            "id": 4004,
+            "name": "Legacy support",
+            "code": "OLD-9"
+          }
+        },
+        {
+          "id": 8002,
+          "kind": "Expense",
+          "description": "Travel",
+          "quantity": 1,
+          "unit_price": 50,
+          "amount": 50,
+          "taxed": true,
+          "taxed2": true,
+          "project": null
+        }
+      ]
+    }
+  ],
+  "per_page": 2000,
+  "total_pages": 1,
+  "total_entries": 5,
+  "next_page": null,
+  "previous_page": null,
+  "page": 1,
+  "links": {
+    "first": "{{BASE}}/invoices?page=1&per_page=2000",
+    "next": null,
+    "previous": null,
+    "last": "{{BASE}}/invoices?page=1&per_page=2000"
+  }
+}

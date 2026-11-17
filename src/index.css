@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* Colour tokens: neutral slate with a deep teal accent. Contrast meets WCAG AA on both themes. */
+@theme {
+  --color-paper: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-ink: #16202a;
+  --color-muted: #55606c;
+  --color-line: #dde2e7;
+  --color-accent: #0e6b5c;
+  --color-accent-strong: #0a5348;
+  --color-accent-soft: #e3f1ee;
+  --color-on-accent: #ffffff;
+  --color-danger: #b42318;
+  --color-warn: #8a5a00;
+  --color-ok: #146c2e;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #0f1418;
+    --color-surface: #161d23;
+    --color-ink: #e6ebef;
+    --color-muted: #9aa6b2;
+    --color-line: #29333c;
+    --color-accent: #4cc3ac;
+    --color-accent-strong: #6fd6c2;
+    --color-accent-soft: #15302b;
+    --color-on-accent: #08201b;
+    --color-danger: #ff8a7d;
+    --color-warn: #f0bd59;
+    --color-ok: #6fd18a;
+  }
+}
+
+body { @apply bg-paper text-ink antialiased; }
+
+@utility card { @apply rounded-xl border border-line bg-surface shadow-sm; }
+@utility field {
+  @apply block w-full rounded-lg border border-line bg-surface px-3 py-2 text-ink outline-none;
+  &:focus { @apply border-accent ring-2 ring-accent/30; }
+}
+@utility btn-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 font-medium text-on-accent;
+  &:hover { @apply bg-accent-strong; }
+  &:focus-visible { @apply outline-2 outline-offset-2 outline-accent; }
+  &:disabled { @apply opacity-60; }
+}
+@utility btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg border border-line bg-surface px-3 py-1.5 text-ink;
+  &:hover { @apply border-muted; }
+  &:focus-visible { @apply outline-2 outline-offset-2 outline-accent; }
+  &:disabled { @apply opacity-50; }
+}
+@utility badge { @apply inline-block rounded-full bg-paper px-2 py-0.5 text-xs text-muted ring-1 ring-line; }
+@utility badge-ok { @apply text-ok; }
+@utility num { @apply text-right tabular-nums whitespace-nowrap; }
+@utility table-wrap {
+  @apply card overflow-x-auto;
+  & table { @apply w-full border-collapse text-sm; }
+  & th { @apply border-b border-line px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted; }
+  & td { @apply border-b border-line px-4 py-2.5 align-top; }
+  & tbody tr:last-child td { @apply border-b-0; }
+  & .num { @apply text-right; }
+}
